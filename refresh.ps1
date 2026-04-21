@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 Set-Location -LiteralPath $PSScriptRoot
 
 $venvPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+$venvPythonw = Join-Path $PSScriptRoot ".venv\Scripts\pythonw.exe"
 
 function Invoke-Checked {
     param(
@@ -40,5 +41,10 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 }
 
 Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", "pip")
-Invoke-Checked $venvPython @("-m", "pip", "install", "-r", "requirements.txt")
-Invoke-Checked $venvPython @("run.py", "--open")
+Invoke-Checked $venvPython @("-m", "pip", "install", "-r", "requirements-windows.txt")
+
+if (Test-Path -LiteralPath $venvPythonw) {
+    Start-Process -FilePath $venvPythonw -ArgumentList @("app.py") -WorkingDirectory $PSScriptRoot
+} else {
+    Start-Process -FilePath $venvPython -ArgumentList @("app.py") -WorkingDirectory $PSScriptRoot
+}

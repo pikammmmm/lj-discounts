@@ -23,12 +23,13 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pyinstaller
+          python -m pip install -r requirements-windows.txt pyinstaller
 
       - name: Build executable
         shell: pwsh
         run: |
-          python -m PyInstaller --onefile --name lj-discounts --clean run.py
+          python -m PyInstaller --onefile --windowed --name lj-discounts --clean app.py
+          python -m PyInstaller --onefile --name lj-discounts-cli --clean run.py
           Copy-Item -LiteralPath windows\run-lj-discounts.cmd -Destination dist\run-lj-discounts.cmd
           Copy-Item -LiteralPath README.md -Destination dist\README.md
 
