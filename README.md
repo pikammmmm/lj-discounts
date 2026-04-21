@@ -1,9 +1,9 @@
 # LJ Discounts
 
-Scrapes grocery discounts and public offer pages for southern Ljubljana and
+Scrapes store discounts and public offer pages for Slovenia and
 builds a searchable discounts app. The current app includes Mercator, Lidl,
-Hofer, Eurospin, and TEDi scrapers; the project is structured so more store
-scrapers can be added under `scrapers/`.
+Hofer, Eurospin, TEDi, Tuš, SPAR, and dm scrapers; the project is structured so
+more store scrapers can be added under `scrapers/`.
 
 ## Target Stores
 
@@ -12,10 +12,16 @@ scrapers can be added under `scrapers/`.
 - Hofer - Rudnik / Vic
 - Eurospin - Rudnik
 - TEDi - Ljubljana
+- Tuš - Slovenia
+- SPAR / Interspar - Ljubljana online offers
+- dm - Slovenia online clearance
 - E.Leclerc - Rudnik
 
-Mercator uses its online assortment API. Lidl, Hofer, Eurospin, and TEDi use
-their public offer pages. E.Leclerc is still a planned target.
+Mercator uses its online assortment API. dm uses the public product-search API.
+Lidl, Hofer, Eurospin, TEDi, Tuš, and SPAR use their public offer pages. SPAR
+embeds product data in page script chunks, so the scraper decodes that public
+page data. E.Leclerc is still a planned target because its offers are mostly
+published as PDF catalogues.
 
 ## Quick Start
 
