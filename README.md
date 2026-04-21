@@ -1,18 +1,21 @@
 # LJ Discounts
 
-Scrapes weekly grocery discounts for southern Ljubljana and builds a searchable
-discounts app. The current working scraper targets Mercator Rudnik; the project
-is structured so more store scrapers can be added under `scrapers/`.
+Scrapes grocery discounts and public offer pages for southern Ljubljana and
+builds a searchable discounts app. The current app includes Mercator, Lidl,
+Hofer, Eurospin, and TEDi scrapers; the project is structured so more store
+scrapers can be added under `scrapers/`.
 
 ## Target Stores
 
 - Mercator - Hipermarket Rudnik / Supernova Rudnik
-- Eurospin - Rudnik
-- Hofer - Rudnik / Vic
-- E.Leclerc - Rudnik
 - Lidl - Rudnik / Vic
+- Hofer - Rudnik / Vic
+- Eurospin - Rudnik
+- TEDi - Ljubljana
+- E.Leclerc - Rudnik
 
-Only Mercator is implemented right now. The other stores are planned targets.
+Mercator uses its online assortment API. Lidl, Hofer, Eurospin, and TEDi use
+their public offer pages. E.Leclerc is still a planned target.
 
 ## Quick Start
 
