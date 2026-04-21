@@ -473,6 +473,15 @@ body{{
 .cat-header.hidden,.cat-section.hidden,.card.hidden{{display:none!important}}
 .no-results{{text-align:center;padding:60px 20px;color:var(--text3);font-size:15px;display:none}}
 .no-results.show{{display:block}}
+.app-refresh{{
+  display:none;position:fixed;right:18px;bottom:18px;z-index:40;
+  width:48px;height:48px;border:0;border-radius:8px;
+  background:var(--accent);color:#000;font-size:22px;font-weight:900;
+  cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.45);
+}}
+.app-refresh:hover{{filter:brightness(1.05)}}
+.app-refresh:disabled{{opacity:.65;cursor:wait}}
+body.app-mode .app-refresh{{display:grid;place-items:center}}
 
 /* === DESKTOP === */
 @media(min-width:768px){{
@@ -526,6 +535,7 @@ body{{
 {cards_html}
 </div>
 <div class="no-results" id="noResults">No results found</div>
+<button class="app-refresh" id="appRefresh" title="Refresh" aria-label="Refresh">↻</button>
 
 <script>
 (()=>{{
@@ -533,6 +543,7 @@ body{{
   const btns=document.querySelectorAll('.filters button');
   const noResults=document.getElementById('noResults');
   const countEl=document.getElementById('searchCount');
+  const appRefresh=document.getElementById('appRefresh');
   const catHeaders=document.querySelectorAll('.cat-header');
   const catSections=document.querySelectorAll('.cat-section');
   let activeCat='all';
@@ -587,6 +598,23 @@ body{{
     }}));
   }});
 
+  let appModeEnabled=false;
+  function enableAppMode(){{
+    if(appModeEnabled)return;
+    appModeEnabled=true;
+    document.body.classList.add('app-mode');
+    appRefresh.disabled=false;
+    appRefresh.textContent='↻';
+    appRefresh.addEventListener('click',()=>{{
+      appRefresh.disabled=true;
+      appRefresh.textContent='...';
+      window.pywebview.api.refresh();
+    }});
+  }}
+  if(window.pywebview&&window.pywebview.api){{
+    enableAppMode();
+  }}
+  window.addEventListener('pywebviewready',enableAppMode);
 }})();
 </script>
 </body></html>""", encoding="utf-8")

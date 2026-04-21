@@ -1,9 +1,8 @@
 # LJ Discounts
 
 Scrapes weekly grocery discounts for southern Ljubljana and builds a searchable
-static `offers.html` report. The current working scraper targets Mercator
-Rudnik; the project is structured so more store scrapers can be added under
-`scrapers/`.
+discounts app. The current working scraper targets Mercator Rudnik; the project
+is structured so more store scrapers can be added under `scrapers/`.
 
 ## Target Stores
 
@@ -17,7 +16,7 @@ Only Mercator is implemented right now. The other stores are planned targets.
 
 ## Quick Start
 
-### Windows, No Python Required
+### Windows Desktop App, No Python Required
 
 The repository includes a GitHub Actions workflow that builds a portable
 Windows zip:
@@ -26,9 +25,11 @@ Windows zip:
 2. Run **Build Windows app** manually, or push a `v*` tag to attach the zip to a
    release.
 3. Download `lj-discounts-windows.zip`.
-4. Extract it and double-click `run-lj-discounts.cmd`.
+4. Extract it and double-click `lj-discounts.exe`.
 
-The generated report is saved as `offers.html` in the same folder as the app.
+The app opens in its own desktop window, refreshes the discounts, and saves the
+latest report as `offers.html` in the same folder. A `lj-discounts-cli.exe`
+console build is included for debugging or scheduled runs.
 
 ### Windows, From Source
 
@@ -40,8 +41,8 @@ You can also run it from PowerShell:
 .\refresh.ps1
 ```
 
-The script creates `.venv`, installs dependencies, runs the scraper, and opens
-`offers.html`.
+The script creates `.venv`, installs the Windows desktop dependencies, and opens
+the app window.
 
 ### macOS / Linux
 
@@ -72,6 +73,7 @@ Useful options:
 ## Project Layout
 
 - `scrapers/` - one module per grocery chain, each exposing `fetch() -> list[Offer]`
+- `app.py` - desktop app wrapper for the generated report
 - `models.py` - shared `Offer` dataclass
 - `run.py` - runs scrapers, stores offers in SQLite, prints highlights, writes HTML
 - `weird.py` - flags suspicious or unusually good deals
