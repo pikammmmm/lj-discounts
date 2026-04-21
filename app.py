@@ -51,7 +51,7 @@ class DiscountsApp:
         return {"ok": True, "message": "Refreshing"}
 
     def _refresh_worker(self) -> None:
-        self._show_status("Refreshing discounts", "Scraping Mercator Rudnik and rebuilding the report...")
+        self._show_status("Refreshing discounts", "Scraping Slovenian store offers and rebuilding the report...")
         stdout = io.StringIO()
         stderr = io.StringIO()
 

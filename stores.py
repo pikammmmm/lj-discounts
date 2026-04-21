@@ -6,4 +6,7 @@ STORES = {
     "Hofer": "Rudnik / Vič online offers",
     "Eurospin": "Rudnik online offers",
     "TEDi": "Ljubljana online offers",
+    "Tuš": "Slovenia online offers",
+    "SPAR": "Ljubljana Interspar online offers",
+    "dm": "Slovenia online clearance",
 }

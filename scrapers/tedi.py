@@ -11,7 +11,7 @@ from .common import HEADERS, absolute_url, clean_text, parse_price
 NAME = "TEDi"
 BASE = "https://www.tedi.com"
 HUB = f"{BASE}/sl/ponudba"
-MAX_PAGES = 12
+MAX_PAGES = 25
 
 
 def fetch() -> list[Offer]:
