@@ -9,20 +9,91 @@ Freshness rules:
 """
 from __future__ import annotations
 
+import argparse
 import sqlite3
 import sys
+import webbrowser
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from categorize import is_grocery
-from models import Offer
-from scrapers import ALL
-from stores import STORES
-from weird import flag_weird, Flag
+if TYPE_CHECKING:
+    from models import Offer
+    from weird import Flag
 
-DB = Path(__file__).parent / "offers.db"
-HTML_OUT = Path(__file__).parent / "offers.html"
 STALE_DAYS = 8
+DEFAULT_TOP = 20
+
+
+def _app_dir() -> Path:
+    """Return a writable application directory for source and frozen builds."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+APP_DIR = _app_dir()
+DEFAULT_DB = APP_DIR / "offers.db"
+DEFAULT_HTML_OUT = APP_DIR / "offers.html"
+
+
+def configure_stdio() -> None:
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Scrape southern Ljubljana grocery discounts and write an HTML report."
+    )
+    parser.set_defaults(open_browser=getattr(sys, "frozen", False))
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB,
+        help=f"SQLite database path (default: {DEFAULT_DB})",
+    )
+    parser.add_argument(
+        "--html",
+        type=Path,
+        default=DEFAULT_HTML_OUT,
+        help=f"HTML report path (default: {DEFAULT_HTML_OUT})",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=DEFAULT_TOP,
+        help=f"number of top percentage discounts to print (default: {DEFAULT_TOP})",
+    )
+    parser.add_argument(
+        "--stale-days",
+        type=int,
+        default=STALE_DAYS,
+        help=f"days before undated unseen offers are purged (default: {STALE_DAYS})",
+    )
+    parser.add_argument(
+        "--open",
+        dest="open_browser",
+        action="store_true",
+        help="open the generated HTML report in the default browser",
+    )
+    parser.add_argument(
+        "--no-open",
+        dest="open_browser",
+        action="store_false",
+        help="do not open the generated HTML report",
+    )
+    args = parser.parse_args(argv)
+    if args.top < 0:
+        parser.error("--top must be 0 or greater")
+    if args.stale_days < 0:
+        parser.error("--stale-days must be 0 or greater")
+    return args
 
 
 def init_db(con: sqlite3.Connection) -> None:
@@ -67,9 +138,9 @@ def upsert(con: sqlite3.Connection, offers: list[Offer]) -> None:
     )
 
 
-def purge(con: sqlite3.Connection, seen_chains: set[str]) -> int:
+def purge(con: sqlite3.Connection, seen_chains: set[str], stale_days: int = STALE_DAYS) -> int:
     today = date.today().isoformat()
-    cutoff = (date.today() - timedelta(days=STALE_DAYS)).isoformat()
+    cutoff = (date.today() - timedelta(days=stale_days)).isoformat()
     cur = con.execute("DELETE FROM offers WHERE valid_to IS NOT NULL AND valid_to < ?", (today,))
     removed = cur.rowcount
     for chain in seen_chains:
@@ -81,7 +152,18 @@ def purge(con: sqlite3.Connection, seen_chains: set[str]) -> int:
     return removed
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    configure_stdio()
+    args = parse_args(argv)
+    db_path = args.db.expanduser()
+    html_out = args.html.expanduser()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    html_out.parent.mkdir(parents=True, exist_ok=True)
+
+    from scrapers import ALL
+    from stores import STORES
+    from weird import flag_weird
+
     all_offers: list[Offer] = []
     seen: set[str] = set()
     for mod in ALL:
@@ -96,10 +178,10 @@ def main() -> int:
             print(f"{mod.NAME:10} FAILED — {e}", file=sys.stderr)
             import traceback; traceback.print_exc(file=sys.stderr)
 
-    with sqlite3.connect(DB) as con:
+    with sqlite3.connect(db_path) as con:
         init_db(con)
         upsert(con, all_offers)
-        removed = purge(con, seen)
+        removed = purge(con, seen, args.stale_days)
         con.commit()
         total = con.execute("SELECT COUNT(*) FROM offers").fetchone()[0]
 
@@ -107,8 +189,8 @@ def main() -> int:
 
     with_pct = [o for o in all_offers if o.discount_pct is not None]
     with_pct.sort(key=lambda o: o.discount_pct, reverse=True)
-    print(f"\n== TOP 20 % DISCOUNTS (Rudnik / Rakovnik area) ==")
-    for o in with_pct[:20]:
+    print(f"\n== TOP {args.top} % DISCOUNTS (Rudnik / Rakovnik area) ==")
+    for o in with_pct[:args.top]:
         print(f"{o.discount_pct:5.1f}%  {o.chain:10}  {o.product[:48]:48}  "
               f"{o.regular_price}€ -> {o.discount_price}€")
 
@@ -123,8 +205,10 @@ def main() -> int:
     for f in interesting[:10]:
         print(f"  {'!!'if f.severity==2 else ' >'} {f.offer.chain:10} {f.offer.product[:40]:40} {f.reason}")
 
-    write_html(clean_offers, interesting)
-    print(f"\nwrote {HTML_OUT}")
+    write_html(clean_offers, interesting, html_out)
+    print(f"\nwrote {html_out}")
+    if args.open_browser:
+        webbrowser.open(html_out.resolve().as_uri())
     return 0
 
 
@@ -154,7 +238,11 @@ def _cat_label(cat1: str | None) -> str:
     return CATEGORY_LABELS.get(cat1, cat1.title())
 
 
-def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
+def write_html(
+    offers: list[Offer],
+    flags: list[Flag] | None = None,
+    output_path: Path = DEFAULT_HTML_OUT,
+) -> None:
     flagged_ids = {id(f.offer): f for f in (flags or [])}
     with_pct = sorted((o for o in offers if o.discount_pct is not None),
                       key=lambda o: o.discount_pct, reverse=True)
@@ -194,7 +282,7 @@ def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
         pct_text = f"-{o.discount_pct:.0f}%" if o.discount_pct else "AKCIJA"
         old_html = f'<span class="old-price">{_fmt(o.regular_price)}</span>' if o.regular_price else ''
         return (
-            f'<a href="{_esc(o.source_url)}" target=_blank class="card{extra_cls}" '
+            f'<a href="{_esc(o.source_url)}" target="_blank" rel="noopener noreferrer" class="card{extra_cls}" '
             f'data-name="{_esc(o.product.lower())}">'
             f'<div class="card-img">{img}</div>'
             f'<div class="card-body">'
@@ -227,7 +315,7 @@ def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
             cards_html += '</div></div>\n'
         cards_html += '</div>\n'
 
-    HTML_OUT.write_text(f"""<!doctype html>
+    output_path.write_text(f"""<!doctype html>
 <html lang=sl><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Popusti — Mercator Rudnik</title>
@@ -495,6 +583,7 @@ body{{
       subGrids.forEach(g=>{{
         g.classList.toggle('sub-hidden',sub!=='all'&&g.dataset.sub!==sub);
       }});
+      applyFilters();
     }}));
   }});
 
