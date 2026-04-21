@@ -1,3 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-.venv/bin/python run.py && open offers.html
+if [ ! -x .venv/bin/python ]; then
+  python3 -m venv .venv
+fi
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python run.py --open
