@@ -49,7 +49,7 @@ def configure_stdio() -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Scrape Slovenian store discounts and write an HTML report."
+        description="Scrape Mercator Rudnik discounts and write an HTML report."
     )
     parser.set_defaults(open_browser=getattr(sys, "frozen", False))
     parser.add_argument(
@@ -189,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
 
     with_pct = [o for o in all_offers if o.discount_pct is not None]
     with_pct.sort(key=lambda o: o.discount_pct, reverse=True)
-    print(f"\n== TOP {args.top} % DISCOUNTS (Slovenian stores) ==")
+    print(f"\n== TOP {args.top} % DISCOUNTS (Mercator Rudnik) ==")
     for o in with_pct[:args.top]:
         print(f"{o.discount_pct:5.1f}%  {o.chain:10}  {o.product[:48]:48}  "
               f"{o.regular_price}€ -> {o.discount_price}€")
@@ -347,7 +347,7 @@ def write_html(
     output_path.write_text(f"""<!doctype html>
 <html lang=sl><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>Popusti — Slovenian stores</title>
+<title>Popusti — Mercator Rudnik</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#4ade80">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -577,7 +577,7 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
 
 <div class="hero">
   <h1>LJ Discounts</h1>
-  <div class="sub">Slovenian store offers &middot; {datetime.now():%d.%m.%Y %H:%M}</div>
+  <div class="sub">Supernova Rudnik &middot; {datetime.now():%d.%m.%Y %H:%M}</div>
   <div class="count">{len(ranked)} on sale</div>
 </div>
 <div class="search-wrap">
