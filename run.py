@@ -329,6 +329,12 @@ def write_html(
 <html lang=sl><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Popusti — Slovenian stores</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4ade80">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="shortcut icon" href="favicon.ico">
 <style>
 :root{{
   --bg:#08090d;
