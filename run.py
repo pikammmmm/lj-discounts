@@ -283,6 +283,17 @@ def write_html(
     # Sort sections by item count
     sections = sorted(hierarchy.items(), key=lambda kv: -sum(len(v) for v in kv[1].values()))
 
+    # Per-chain category counts for dynamic filter buttons.
+    # shape: {chain_name: {category_display_name: count}}
+    import json as _json
+    cat_by_chain: dict[str, dict[str, int]] = {n: {} for n in chain_names}
+    for cat_name, subs in sections:
+        for sub_name, items in subs.items():
+            for o in items:
+                chain_map = cat_by_chain.setdefault(o.chain, {})
+                chain_map[cat_name] = chain_map.get(cat_name, 0) + 1
+    cat_counts_by_chain_json = _json.dumps(cat_by_chain, ensure_ascii=False)
+
     def make_card(o: Offer) -> str:
         img = ""
         if o.image_path:
@@ -639,19 +650,56 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
     chainBtns.forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     activeChain=btn.dataset.chain;
+    updateCatButtons();
     applyFilters();
   }}));
 
   let tid;
   search.addEventListener('input',()=>{{clearTimeout(tid);tid=setTimeout(applyFilters,120)}});
 
+  /* Per-chain category counts. Used to update filter button labels + disable
+     buttons that would yield zero results for the selected chain. */
+  const catCountsByChain={cat_counts_by_chain_json};
+  const catTotals={{}};
+  btns.forEach(btn=>{{
+    const cat=btn.dataset.cat;
+    if(cat==='all')return;
+    let total=0;
+    for(const ch in catCountsByChain) total+=catCountsByChain[ch][cat]||0;
+    catTotals[cat]=total;
+    btn.dataset.label=btn.textContent.replace(/\s*\(\d+\)\s*$/,'').trim();
+  }});
+  function updateCatButtons(){{
+    btns.forEach(btn=>{{
+      const cat=btn.dataset.cat;
+      if(cat==='all'){{
+        const total=activeChain==='all'?{len(ranked)}:(
+          Object.values(catCountsByChain[activeChain]||{{}}).reduce((a,b)=>a+b,0)
+        );
+        btn.textContent=`Vse (${{total}})`;
+        btn.disabled=total===0;
+        return;
+      }}
+      const n=activeChain==='all'?catTotals[cat]:(catCountsByChain[activeChain]||{{}})[cat]||0;
+      btn.textContent=`${{btn.dataset.label}} (${{n}})`;
+      btn.disabled=n===0;
+      if(n===0&&btn.classList.contains('active')){{
+        btn.classList.remove('active');
+        const allBtn=document.querySelector('.filters button[data-cat="all"]');
+        if(allBtn) allBtn.classList.add('active');
+        activeCat='all';
+      }}
+    }});
+  }}
+  updateCatButtons();
+
   /* Sub-category buttons */
   document.querySelectorAll('.sub-filters').forEach(bar=>{{
-    const btns=bar.querySelectorAll('.sub-btn');
+    const subBtns=bar.querySelectorAll('.sub-btn');
     const section=bar.parentElement;
     const subGrids=section.querySelectorAll('.sub-grid');
-    btns.forEach(btn=>btn.addEventListener('click',()=>{{
-      btns.forEach(b=>b.classList.remove('active'));
+    subBtns.forEach(btn=>btn.addEventListener('click',()=>{{
+      subBtns.forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       const sub=btn.dataset.sub;
       subGrids.forEach(g=>{{
