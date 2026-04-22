@@ -1,3 +1,3 @@
-from . import mercator
+from . import dm, eurospin, hofer, lidl, mercator, spar, tedi, tus
 
-ALL = [mercator]
+ALL = [mercator, lidl, hofer, eurospin, tedi, tus, spar, dm]

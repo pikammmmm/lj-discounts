@@ -9,20 +9,91 @@ Freshness rules:
 """
 from __future__ import annotations
 
+import argparse
 import sqlite3
 import sys
+import webbrowser
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from categorize import is_grocery
-from models import Offer
-from scrapers import ALL
-from stores import STORES
-from weird import flag_weird, Flag
+if TYPE_CHECKING:
+    from models import Offer
+    from weird import Flag
 
-DB = Path(__file__).parent / "offers.db"
-HTML_OUT = Path(__file__).parent / "offers.html"
 STALE_DAYS = 8
+DEFAULT_TOP = 20
+
+
+def _app_dir() -> Path:
+    """Return a writable application directory for source and frozen builds."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+APP_DIR = _app_dir()
+DEFAULT_DB = APP_DIR / "offers.db"
+DEFAULT_HTML_OUT = APP_DIR / "offers.html"
+
+
+def configure_stdio() -> None:
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Scrape Slovenian store discounts and write an HTML report."
+    )
+    parser.set_defaults(open_browser=getattr(sys, "frozen", False))
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB,
+        help=f"SQLite database path (default: {DEFAULT_DB})",
+    )
+    parser.add_argument(
+        "--html",
+        type=Path,
+        default=DEFAULT_HTML_OUT,
+        help=f"HTML report path (default: {DEFAULT_HTML_OUT})",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=DEFAULT_TOP,
+        help=f"number of top percentage discounts to print (default: {DEFAULT_TOP})",
+    )
+    parser.add_argument(
+        "--stale-days",
+        type=int,
+        default=STALE_DAYS,
+        help=f"days before undated unseen offers are purged (default: {STALE_DAYS})",
+    )
+    parser.add_argument(
+        "--open",
+        dest="open_browser",
+        action="store_true",
+        help="open the generated HTML report in the default browser",
+    )
+    parser.add_argument(
+        "--no-open",
+        dest="open_browser",
+        action="store_false",
+        help="do not open the generated HTML report",
+    )
+    args = parser.parse_args(argv)
+    if args.top < 0:
+        parser.error("--top must be 0 or greater")
+    if args.stale_days < 0:
+        parser.error("--stale-days must be 0 or greater")
+    return args
 
 
 def init_db(con: sqlite3.Connection) -> None:
@@ -67,9 +138,9 @@ def upsert(con: sqlite3.Connection, offers: list[Offer]) -> None:
     )
 
 
-def purge(con: sqlite3.Connection, seen_chains: set[str]) -> int:
+def purge(con: sqlite3.Connection, seen_chains: set[str], stale_days: int = STALE_DAYS) -> int:
     today = date.today().isoformat()
-    cutoff = (date.today() - timedelta(days=STALE_DAYS)).isoformat()
+    cutoff = (date.today() - timedelta(days=stale_days)).isoformat()
     cur = con.execute("DELETE FROM offers WHERE valid_to IS NOT NULL AND valid_to < ?", (today,))
     removed = cur.rowcount
     for chain in seen_chains:
@@ -81,7 +152,18 @@ def purge(con: sqlite3.Connection, seen_chains: set[str]) -> int:
     return removed
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    configure_stdio()
+    args = parse_args(argv)
+    db_path = args.db.expanduser()
+    html_out = args.html.expanduser()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    html_out.parent.mkdir(parents=True, exist_ok=True)
+
+    from scrapers import ALL
+    from stores import STORES
+    from weird import flag_weird
+
     all_offers: list[Offer] = []
     seen: set[str] = set()
     for mod in ALL:
@@ -96,10 +178,10 @@ def main() -> int:
             print(f"{mod.NAME:10} FAILED — {e}", file=sys.stderr)
             import traceback; traceback.print_exc(file=sys.stderr)
 
-    with sqlite3.connect(DB) as con:
+    with sqlite3.connect(db_path) as con:
         init_db(con)
         upsert(con, all_offers)
-        removed = purge(con, seen)
+        removed = purge(con, seen, args.stale_days)
         con.commit()
         total = con.execute("SELECT COUNT(*) FROM offers").fetchone()[0]
 
@@ -107,15 +189,16 @@ def main() -> int:
 
     with_pct = [o for o in all_offers if o.discount_pct is not None]
     with_pct.sort(key=lambda o: o.discount_pct, reverse=True)
-    print(f"\n== TOP 20 % DISCOUNTS (Rudnik / Rakovnik area) ==")
-    for o in with_pct[:20]:
+    print(f"\n== TOP {args.top} % DISCOUNTS (Slovenian stores) ==")
+    for o in with_pct[:args.top]:
         print(f"{o.discount_pct:5.1f}%  {o.chain:10}  {o.product[:48]:48}  "
               f"{o.regular_price}€ -> {o.discount_price}€")
 
-    flags = flag_weird(all_offers)
+    fresh_offers = [o for o in all_offers if o.valid_to is None or o.valid_to >= date.today()]
+    flags = flag_weird(fresh_offers)
     # Remove severity-3 (garbage) from display
     garbage_ids = {id(f.offer) for f in flags if f.severity == 3}
-    clean_offers = [o for o in all_offers if id(o) not in garbage_ids]
+    clean_offers = [o for o in fresh_offers if id(o) not in garbage_ids]
     interesting = [f for f in flags if f.severity <= 2]
 
     print(f"\nflagged {len(flags)} weird ({sum(1 for f in flags if f.severity==3)} garbage removed, "
@@ -123,8 +206,10 @@ def main() -> int:
     for f in interesting[:10]:
         print(f"  {'!!'if f.severity==2 else ' >'} {f.offer.chain:10} {f.offer.product[:40]:40} {f.reason}")
 
-    write_html(clean_offers, interesting)
-    print(f"\nwrote {HTML_OUT}")
+    write_html(clean_offers, interesting, html_out)
+    print(f"\nwrote {html_out}")
+    if args.open_browser:
+        webbrowser.open(html_out.resolve().as_uri())
     return 0
 
 
@@ -154,7 +239,13 @@ def _cat_label(cat1: str | None) -> str:
     return CATEGORY_LABELS.get(cat1, cat1.title())
 
 
-def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
+def write_html(
+    offers: list[Offer],
+    flags: list[Flag] | None = None,
+    output_path: Path = DEFAULT_HTML_OUT,
+) -> None:
+    from stores import STORES
+
     flagged_ids = {id(f.offer): f for f in (flags or [])}
     with_pct = sorted((o for o in offers if o.discount_pct is not None),
                       key=lambda o: o.discount_pct, reverse=True)
@@ -163,6 +254,13 @@ def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
     ranked = with_pct + without_pct
 
     from collections import defaultdict
+
+    chain_counts: dict[str, int] = {name: 0 for name in STORES}
+    for o in ranked:
+        chain_counts[o.chain] = chain_counts.get(o.chain, 0) + 1
+    chain_names = [name for name in STORES if chain_counts.get(name, 0)]
+    chain_names.extend(name for name in sorted(chain_counts) if name not in chain_names and chain_counts[name])
+    empty_chain_names = [name for name in STORES if not chain_counts.get(name, 0)]
 
     # Build hierarchy: category1 -> category2 -> [offers]
     hierarchy: dict[str, dict[str, list[Offer]]] = defaultdict(lambda: defaultdict(list))
@@ -194,11 +292,11 @@ def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
         pct_text = f"-{o.discount_pct:.0f}%" if o.discount_pct else "AKCIJA"
         old_html = f'<span class="old-price">{_fmt(o.regular_price)}</span>' if o.regular_price else ''
         return (
-            f'<a href="{_esc(o.source_url)}" target=_blank class="card{extra_cls}" '
-            f'data-name="{_esc(o.product.lower())}">'
+            f'<a href="{_esc(o.source_url)}" target="_blank" rel="noopener noreferrer" class="card{extra_cls}" '
+            f'data-name="{_esc(o.product.lower())}" data-chain="{_esc(o.chain)}">'
             f'<div class="card-img">{img}</div>'
             f'<div class="card-body">'
-            f'<div class="card-pct">{pct_text}{badge}</div>'
+            f'<div class="card-meta"><span class="chain">{_esc(o.chain)}</span><span class="card-pct">{pct_text}{badge}</span></div>'
             f'<div class="card-name">{_esc(o.product)}</div>'
             f'<div class="card-prices">{old_html}'
             f'<span class="new-price">{_fmt(o.discount_price)}</span></div>'
@@ -227,10 +325,10 @@ def write_html(offers: list[Offer], flags: list[Flag] | None = None) -> None:
             cards_html += '</div></div>\n'
         cards_html += '</div>\n'
 
-    HTML_OUT.write_text(f"""<!doctype html>
+    output_path.write_text(f"""<!doctype html>
 <html lang=sl><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>Popusti — Mercator Rudnik</title>
+<title>Popusti — Slovenian stores</title>
 <style>
 :root{{
   --bg:#08090d;
@@ -292,6 +390,25 @@ body{{
 .search-count{{
   text-align:center;font-size:12px;color:var(--text3);
   margin:0 0 4px;min-height:16px;
+}}
+
+/* === STORE TABS === */
+.chain-tabs{{
+  padding:12px 16px 4px;display:flex;gap:8px;flex-wrap:wrap;
+  justify-content:center;background:var(--bg);
+}}
+.chain-tabs button{{
+  background:var(--surface2);color:var(--text2);
+  border:1px solid var(--border);border-radius:8px;
+  min-height:34px;padding:0 14px;font-size:12px;font-weight:700;
+  cursor:pointer;white-space:nowrap;transition:all .15s;
+}}
+.chain-tabs button:hover:not(:disabled){{background:rgba(255,255,255,.08);color:#fff}}
+.chain-tabs button.active{{
+  background:var(--accent2);color:#000;border-color:var(--accent2);
+}}
+.chain-tabs button:disabled{{
+  opacity:.45;cursor:not-allowed;
 }}
 
 /* === FILTERS === */
@@ -368,7 +485,12 @@ body{{
 .card-img img{{max-width:100%;max-height:100%;object-fit:contain}}
 
 .card-body{{padding:10px 12px 14px;flex:1;display:flex;flex-direction:column;gap:4px}}
-.card-pct{{font-size:13px;font-weight:800;color:var(--accent);display:flex;align-items:center;gap:5px}}
+.card-meta{{display:flex;align-items:center;justify-content:space-between;gap:8px}}
+.card-meta .chain{{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;
+}}
+.card-pct{{font-size:13px;font-weight:800;color:var(--accent);display:flex;align-items:center;gap:5px;flex:none}}
 .card-name{{
   font-size:12px;font-weight:500;line-height:1.35;color:var(--text2);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
@@ -385,6 +507,15 @@ body{{
 .cat-header.hidden,.cat-section.hidden,.card.hidden{{display:none!important}}
 .no-results{{text-align:center;padding:60px 20px;color:var(--text3);font-size:15px;display:none}}
 .no-results.show{{display:block}}
+.app-refresh{{
+  display:none;position:fixed;right:18px;bottom:18px;z-index:40;
+  width:48px;height:48px;border:0;border-radius:8px;
+  background:var(--accent);color:#000;font-size:22px;font-weight:900;
+  cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.45);
+}}
+.app-refresh:hover{{filter:brightness(1.05)}}
+.app-refresh:disabled{{opacity:.65;cursor:wait}}
+body.app-mode .app-refresh{{display:grid;place-items:center}}
 
 /* === DESKTOP === */
 @media(min-width:768px){{
@@ -420,8 +551,8 @@ body{{
 </head><body>
 
 <div class="hero">
-  <h1>Popusti Mercator</h1>
-  <div class="sub">Supernova Rudnik &middot; {datetime.now():%d.%m.%Y %H:%M}</div>
+  <h1>LJ Discounts</h1>
+  <div class="sub">Slovenian store offers &middot; {datetime.now():%d.%m.%Y %H:%M}</div>
   <div class="count">{len(ranked)} on sale</div>
 </div>
 <div class="search-wrap">
@@ -429,6 +560,11 @@ body{{
   <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 </div>
 <div class="search-count" id="searchCount"></div>
+<div class="chain-tabs" id="chainTabs">
+  <button class="active" data-chain="all">All stores ({len(ranked)})</button>
+  {''.join('<button data-chain="' + _esc(name) + '">' + _esc(name) + ' (' + str(chain_counts.get(name, 0)) + ')</button>' for name in chain_names)}
+  {''.join('<button data-chain="' + _esc(name) + '" disabled>' + _esc(name) + ' (0)</button>' for name in empty_chain_names)}
+</div>
 <div class="filters" id="filters">
   <button class="active" data-cat="all">Vse ({len(ranked)})</button>
   {''.join('<button data-cat="' + _esc(name) + '">' + _esc(name) + ' (' + str(sum(len(v) for v in subs.values())) + ')</button>' for name, subs in sections)}
@@ -438,16 +574,20 @@ body{{
 {cards_html}
 </div>
 <div class="no-results" id="noResults">No results found</div>
+<button class="app-refresh" id="appRefresh" title="Refresh" aria-label="Refresh">↻</button>
 
 <script>
 (()=>{{
   const search=document.getElementById('search');
   const btns=document.querySelectorAll('.filters button');
+  const chainBtns=document.querySelectorAll('.chain-tabs button:not(:disabled)');
   const noResults=document.getElementById('noResults');
   const countEl=document.getElementById('searchCount');
+  const appRefresh=document.getElementById('appRefresh');
   const catHeaders=document.querySelectorAll('.cat-header');
   const catSections=document.querySelectorAll('.cat-section');
   let activeCat='all';
+  let activeChain='all';
 
   function applyFilters(){{
     const q=search.value.toLowerCase().trim();
@@ -463,7 +603,8 @@ body{{
         /* respect sub-filter: if parent sub-grid is hidden, card stays hidden */
         const subGrid=c.closest('.sub-grid');
         if(subGrid&&subGrid.classList.contains('sub-hidden'))return;
-        const show=!q||c.dataset.name.includes(q);
+        const showChain=activeChain==='all'||c.dataset.chain===activeChain;
+        const show=showChain&&(!q||c.dataset.name.includes(q));
         c.classList.toggle('hidden',!show);
         if(show){{catVis++;visible++}}
       }});
@@ -477,6 +618,13 @@ body{{
     btns.forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     activeCat=btn.dataset.cat;
+    applyFilters();
+  }}));
+
+  chainBtns.forEach(btn=>btn.addEventListener('click',()=>{{
+    chainBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeChain=btn.dataset.chain;
     applyFilters();
   }}));
 
@@ -495,9 +643,27 @@ body{{
       subGrids.forEach(g=>{{
         g.classList.toggle('sub-hidden',sub!=='all'&&g.dataset.sub!==sub);
       }});
+      applyFilters();
     }}));
   }});
 
+  let appModeEnabled=false;
+  function enableAppMode(){{
+    if(appModeEnabled)return;
+    appModeEnabled=true;
+    document.body.classList.add('app-mode');
+    appRefresh.disabled=false;
+    appRefresh.textContent='↻';
+    appRefresh.addEventListener('click',()=>{{
+      appRefresh.disabled=true;
+      appRefresh.textContent='...';
+      window.pywebview.api.refresh();
+    }});
+  }}
+  if(window.pywebview&&window.pywebview.api){{
+    enableAppMode();
+  }}
+  window.addEventListener('pywebviewready',enableAppMode);
 }})();
 </script>
 </body></html>""", encoding="utf-8")

@@ -1,27 +1,96 @@
 # LJ Discounts
 
-Scrapes weekly discount catalogs from grocery stores in southern Ljubljana and
-ranks the biggest discounts across chains.
+Scrapes store discounts and public offer pages for Slovenia and
+builds a searchable discounts app. The current app includes Mercator, Lidl,
+Hofer, Eurospin, TEDi, Tuš, SPAR, and dm scrapers; the project is structured so
+more store scrapers can be added under `scrapers/`.
 
-## Target stores (southern LJ)
-- Mercator — e.g. Rudnik, Barje
-- Eurospin — Rudnik
-- Hofer — Rudnik / Vič
-- E.Leclerc — Rudnik (Jurčkova)
-- Lidl — Rudnik / Vič
+## Target Stores
 
-## Layout
-- `scrapers/` — one module per chain. Each exposes `fetch() -> list[Offer]`.
-- `models.py` — shared `Offer` dataclass.
-- `run.py` — runs every scraper, stores results in SQLite, prints top N.
+- Mercator - Hipermarket Rudnik / Supernova Rudnik
+- Lidl - Rudnik / Vic
+- Hofer - Rudnik / Vic
+- Eurospin - Rudnik
+- TEDi - Ljubljana
+- Tuš - Slovenia
+- SPAR / Interspar - Ljubljana online offers
+- dm - Slovenia online clearance
+- E.Leclerc - Rudnik
 
-## Status
-Scaffold only. Mercator scraper is a working starting point; others are stubs
-you (or I, next session) fill in by inspecting each chain's public catalog.
+Mercator uses its online assortment API. dm uses the public product-search API.
+Lidl, Hofer, Eurospin, TEDi, Tuš, and SPAR use their public offer pages. SPAR
+embeds product data in page script chunks, so the scraper decodes that public
+page data. E.Leclerc is still a planned target because its offers are mostly
+published as PDF catalogues.
 
-## Run
+## Quick Start
+
+### Windows Desktop App, No Python Required
+
+The repository includes a GitHub Actions workflow that builds a portable
+Windows zip:
+
+1. Open **Actions** in GitHub.
+2. Run **Build Windows app** manually, or push a `v*` tag to attach the zip to a
+   release.
+3. Download `lj-discounts-windows.zip`.
+4. Extract it and double-click `lj-discounts.exe`.
+
+The app opens in its own desktop window, refreshes the discounts, and saves the
+latest report as `offers.html` in the same folder. A `lj-discounts-cli.exe`
+console build is included for debugging or scheduled runs.
+
+### Windows, From Source
+
+Install Python 3.12 or newer, then double-click `refresh.bat`.
+
+You can also run it from PowerShell:
+
+```powershell
+.\refresh.ps1
 ```
-python3 -m venv .venv && source .venv/bin/activate
+
+The script creates `.venv`, installs the Windows desktop dependencies, and opens
+the app window.
+
+### macOS / Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-python run.py
+python run.py --open
 ```
+
+On macOS, `refresh.command` does the same thing.
+
+## CLI
+
+```bash
+python run.py --help
+python run.py --html out/offers.html --db out/offers.db --top 30 --open
+```
+
+Useful options:
+
+- `--html PATH` - write the report somewhere else
+- `--db PATH` - write the SQLite cache somewhere else
+- `--top N` - choose how many top discounts to print
+- `--open` / `--no-open` - control browser launch
+- `--stale-days N` - purge old undated offers after N days
+
+## Project Layout
+
+- `scrapers/` - one module per grocery chain, each exposing `fetch() -> list[Offer]`
+- `app.py` - desktop app wrapper for the generated report
+- `models.py` - shared `Offer` dataclass
+- `run.py` - runs scrapers, stores offers in SQLite, prints highlights, writes HTML
+- `weird.py` - flags suspicious or unusually good deals
+- `.github/workflows/scrape.yml` - scheduled scraper and GitHub Pages deploy
+- `.github/workflows/windows.yml` - Windows executable build
+
+## Deploy
+
+The scheduled scraper runs on GitHub Actions and pushes the generated report to
+the `gh-pages` branch. You can also trigger it manually from the **Scrape &
+Deploy** workflow.
