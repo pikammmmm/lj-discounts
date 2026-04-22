@@ -5,25 +5,17 @@
 [![Latest release](https://img.shields.io/github/v/release/pikammmmm/lj-discounts)](https://github.com/pikammmmm/lj-discounts/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Tracks weekly grocery discounts across Ljubljana and ranks the best deals by
-percentage, in one searchable report.
+Tracks weekly grocery discounts at **Mercator Hipermarket Rudnik** (Supernova
+Ljubljana) and ranks the best deals by percentage off.
 
 **Live site:** https://pikammmmm.github.io/lj-discounts/
 *(Rebuilds twice daily at 07:00 and 12:00 Europe/Ljubljana.)*
 
-## Stores covered
+## Source
 
-| Chain      | Source                                  |
-|------------|-----------------------------------------|
-| Mercator   | Supernova Rudnik online assortment API  |
-| Lidl       | `lidl.si/c/ponudba` offer pages         |
-| Hofer      | `hofer.si` online offer pages           |
-| Eurospin   | `eurospin.si` online offer pages        |
-| TEDi       | `tedi.com` Ljubljana offer pages        |
-| Tuš        | `tus.si` weekly offer pages             |
-| SPAR       | `online.spar.si` Next.js data chunks    |
-| dm         | `dm.si` product-search API (clearance)  |
-| E.Leclerc  | *planned — catalogue published as PDF*  |
+Hits Mercator's online assortment API pinned to the Rudnik distribution
+center (HM LJUBLJANA RUDNIK, id=30) so the returned products match what's
+actually available at the store.
 
 ## Install
 
@@ -31,14 +23,14 @@ percentage, in one searchable report.
 
 Download the latest [`lj-discounts-windows.zip`](https://github.com/pikammmmm/lj-discounts/releases/latest),
 unzip, and double-click **`run-lj-discounts.cmd`**. The desktop app window
-opens, scrapes once, and displays the report. `lj-discounts-cli.exe` is
-bundled for scheduled/headless use.
+opens, scrapes, and displays the report. `lj-discounts-cli.exe` is bundled
+for scheduled/headless use.
 
 ### Android — Add to Home Screen (PWA)
 
 Open the [live site](https://pikammmmm.github.io/lj-discounts/) in Chrome on
-Android → menu → **Add to Home Screen**. The site installs as a standalone app
-with its own icon.
+Android → menu → **Add to Home Screen**. Installs as a standalone app with
+its own icon.
 
 ### Run from source — Windows
 
@@ -78,15 +70,13 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
 .
 ├── app.py                    # pywebview desktop shell
 ├── run.py                    # CLI entry point + HTML renderer
-├── scrapers/                 # one module per chain (fetch() -> list[Offer])
-│   ├── common.py             # shared helpers (UA, price/date parse)
-│   ├── mercator.py, lidl.py, hofer.py, eurospin.py,
-│   │ tedi.py, tus.py, spar.py, dm.py
-│   └── __init__.py           # exports ALL = [...]
+├── scrapers/
+│   ├── mercator.py           # Mercator online API scraper
+│   └── __init__.py
 ├── models.py                 # Offer dataclass
-├── stores.py                 # physical-store labels
+├── stores.py                 # physical-store label
 ├── weird.py                  # hot/suspicious deal flagging
-├── categorize.py             # category normalization
+├── categorize.py             # grocery vs non-grocery filter
 ├── assets/                   # app icon (ICO + PNG) + generator
 ├── manifest.json             # PWA manifest (served from gh-pages)
 ├── windows/                  # Windows-only launchers bundled in the exe zip
@@ -108,12 +98,6 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
    builds `lj-discounts.exe` (desktop) and `lj-discounts-cli.exe`, zips them
    with README and launcher, uploads as an artifact, and attaches the zip to
    the GitHub Release.
-
-## Contributing
-
-Adding a chain is small: write `scrapers/<chain>.py` exposing `NAME` and
-`fetch() -> list[Offer]`, register it in `scrapers/__init__.py`, add a store
-label to `stores.py`. Existing scrapers in `scrapers/` are the template.
 
 ## License
 
