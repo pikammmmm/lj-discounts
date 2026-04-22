@@ -263,9 +263,16 @@ def write_html(
     empty_chain_names = [name for name in STORES if not chain_counts.get(name, 0)]
 
     # Build hierarchy: category1 -> category2 -> [offers]
+    # Non-Mercator scrapers set category1 to the chain name ("Hofer", "SPAR",
+    # "Food" from Lidl, ...). Re-categorize those via product-name keywords so
+    # chocolate from any chain lands in "Sladkarije", drinks in "Pijače", etc.
+    from categorize import infer_category1
+
     hierarchy: dict[str, dict[str, list[Offer]]] = defaultdict(lambda: defaultdict(list))
     for o in ranked:
-        cat1_raw = o.category1 or "Ostalo"
+        cat1_raw = o.category1
+        if cat1_raw not in CATEGORY_LABELS:
+            cat1_raw = infer_category1(o.product, fallback=cat1_raw) or "Ostalo"
         cat1 = CATEGORY_LABELS.get(cat1_raw, cat1_raw.title())
         cat2 = o.category or cat1
         if cat2 == cat1_raw:
