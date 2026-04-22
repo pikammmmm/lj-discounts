@@ -1,0 +1,26 @@
+{
+  "name": "LJ Discounts",
+  "short_name": "LJ Discounts",
+  "description": "Weekly grocery discounts across Ljubljana (Mercator, Lidl, Hofer, Eurospin, TEDi, Tuš, SPAR, dm).",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "sl",
+  "theme_color": "#4ade80",
+  "background_color": "#08090d",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
