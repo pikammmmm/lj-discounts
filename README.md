@@ -1,59 +1,52 @@
 # LJ Discounts
 
-Scrapes store discounts and public offer pages for Slovenia and
-builds a searchable discounts app. The current app includes Mercator, Lidl,
-Hofer, Eurospin, TEDi, Tuš, SPAR, and dm scrapers; the project is structured so
-more store scrapers can be added under `scrapers/`.
+![Build Windows app](https://github.com/pikammmmm/lj-discounts/actions/workflows/windows.yml/badge.svg)
+![Scrape & Deploy](https://github.com/pikammmmm/lj-discounts/actions/workflows/scrape.yml/badge.svg)
+[![Latest release](https://img.shields.io/github/v/release/pikammmmm/lj-discounts)](https://github.com/pikammmmm/lj-discounts/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Target Stores
+Tracks weekly grocery discounts across Ljubljana and ranks the best deals by
+percentage, in one searchable report.
 
-- Mercator - Hipermarket Rudnik / Supernova Rudnik
-- Lidl - Rudnik / Vic
-- Hofer - Rudnik / Vic
-- Eurospin - Rudnik
-- TEDi - Ljubljana
-- Tuš - Slovenia
-- SPAR / Interspar - Ljubljana online offers
-- dm - Slovenia online clearance
-- E.Leclerc - Rudnik
+**Live site:** https://pikammmmm.github.io/lj-discounts/
+*(Rebuilds twice daily at 07:00 and 12:00 Europe/Ljubljana.)*
 
-Mercator uses its online assortment API. dm uses the public product-search API.
-Lidl, Hofer, Eurospin, TEDi, Tuš, and SPAR use their public offer pages. SPAR
-embeds product data in page script chunks, so the scraper decodes that public
-page data. E.Leclerc is still a planned target because its offers are mostly
-published as PDF catalogues.
+## Stores covered
 
-## Quick Start
+| Chain      | Source                                  |
+|------------|-----------------------------------------|
+| Mercator   | Supernova Rudnik online assortment API  |
+| Lidl       | `lidl.si/c/ponudba` offer pages         |
+| Hofer      | `hofer.si` online offer pages           |
+| Eurospin   | `eurospin.si` online offer pages        |
+| TEDi       | `tedi.com` Ljubljana offer pages        |
+| Tuš        | `tus.si` weekly offer pages             |
+| SPAR       | `online.spar.si` Next.js data chunks    |
+| dm         | `dm.si` product-search API (clearance)  |
+| E.Leclerc  | *planned — catalogue published as PDF*  |
 
-### Windows Desktop App, No Python Required
+## Install
 
-The repository includes a GitHub Actions workflow that builds a portable
-Windows zip:
+### Windows — no Python required
 
-1. Open **Actions** in GitHub.
-2. Run **Build Windows app** manually, or push a `v*` tag to attach the zip to a
-   release.
-3. Download `lj-discounts-windows.zip`.
-4. Extract it and double-click `lj-discounts.exe`.
+Download the latest [`lj-discounts-windows.zip`](https://github.com/pikammmmm/lj-discounts/releases/latest),
+unzip, and double-click **`run-lj-discounts.cmd`**. The desktop app window
+opens, scrapes once, and displays the report. `lj-discounts-cli.exe` is
+bundled for scheduled/headless use.
 
-The app opens in its own desktop window, refreshes the discounts, and saves the
-latest report as `offers.html` in the same folder. A `lj-discounts-cli.exe`
-console build is included for debugging or scheduled runs.
+### Android — Add to Home Screen (PWA)
 
-### Windows, From Source
+Open the [live site](https://pikammmmm.github.io/lj-discounts/) in Chrome on
+Android → menu → **Add to Home Screen**. The site installs as a standalone app
+with its own icon.
 
-Install Python 3.12 or newer, then double-click `refresh.bat`.
+### Run from source — Windows
 
-You can also run it from PowerShell:
+Install Python 3.12+, then double-click **`refresh.bat`** (or run
+`.\refresh.ps1` from PowerShell). A `.venv` is created, dependencies are
+installed, and the app window opens.
 
-```powershell
-.\refresh.ps1
-```
-
-The script creates `.venv`, installs the Windows desktop dependencies, and opens
-the app window.
-
-### macOS / Linux
+### Run from source — macOS / Linux
 
 ```bash
 python3 -m venv .venv
@@ -62,35 +55,66 @@ pip install -r requirements.txt
 python run.py --open
 ```
 
-On macOS, `refresh.command` does the same thing.
+macOS users can double-click `refresh.command`.
 
 ## CLI
 
 ```bash
-python run.py --help
-python run.py --html out/offers.html --db out/offers.db --top 30 --open
+python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-open]
 ```
 
-Useful options:
+| Flag            | Default        | Purpose                                       |
+|-----------------|----------------|-----------------------------------------------|
+| `--html PATH`   | `offers.html`  | Where to write the generated HTML report      |
+| `--db PATH`     | `offers.db`    | SQLite cache path                             |
+| `--top N`       | `20`           | How many % discounts to print to stdout      |
+| `--stale-days N`| `8`            | Purge undated, unseen offers after N days     |
+| `--open`        | auto           | Open the HTML in the default browser          |
+| `--no-open`     | —              | Skip browser launch                           |
 
-- `--html PATH` - write the report somewhere else
-- `--db PATH` - write the SQLite cache somewhere else
-- `--top N` - choose how many top discounts to print
-- `--open` / `--no-open` - control browser launch
-- `--stale-days N` - purge old undated offers after N days
+## Layout
 
-## Project Layout
+```
+.
+├── app.py                    # pywebview desktop shell
+├── run.py                    # CLI entry point + HTML renderer
+├── scrapers/                 # one module per chain (fetch() -> list[Offer])
+│   ├── common.py             # shared helpers (UA, price/date parse)
+│   ├── mercator.py, lidl.py, hofer.py, eurospin.py,
+│   │ tedi.py, tus.py, spar.py, dm.py
+│   └── __init__.py           # exports ALL = [...]
+├── models.py                 # Offer dataclass
+├── stores.py                 # physical-store labels
+├── weird.py                  # hot/suspicious deal flagging
+├── categorize.py             # category normalization
+├── assets/                   # app icon (ICO + PNG) + generator
+├── manifest.json             # PWA manifest (served from gh-pages)
+├── windows/                  # Windows-only launchers bundled in the exe zip
+├── refresh.{bat,ps1,command} # source-run launchers per platform
+├── requirements.txt          # scrape-only deps (requests, beautifulsoup4)
+├── requirements-windows.txt  # adds pywebview for the desktop app
+└── .github/workflows/
+    ├── scrape.yml            # daily scrape → gh-pages
+    └── windows.yml           # tag-triggered exe build + release
+```
 
-- `scrapers/` - one module per grocery chain, each exposing `fetch() -> list[Offer]`
-- `app.py` - desktop app wrapper for the generated report
-- `models.py` - shared `Offer` dataclass
-- `run.py` - runs scrapers, stores offers in SQLite, prints highlights, writes HTML
-- `weird.py` - flags suspicious or unusually good deals
-- `.github/workflows/scrape.yml` - scheduled scraper and GitHub Pages deploy
-- `.github/workflows/windows.yml` - Windows executable build
+## Pipeline
 
-## Deploy
+1. **Scrape (scheduled):** `scrape.yml` runs `python run.py` on GitHub-hosted
+   Ubuntu daily at 05:00 and 10:00 UTC (07:00 / 12:00 local).
+2. **Deploy:** generated `offers.html` is copied to `index.html`, icons and
+   `manifest.json` are staged, and the result is force-pushed to `gh-pages`.
+3. **Release (tag-triggered):** pushing a `v*` tag runs `windows.yml`, which
+   builds `lj-discounts.exe` (desktop) and `lj-discounts-cli.exe`, zips them
+   with README and launcher, uploads as an artifact, and attaches the zip to
+   the GitHub Release.
 
-The scheduled scraper runs on GitHub Actions and pushes the generated report to
-the `gh-pages` branch. You can also trigger it manually from the **Scrape &
-Deploy** workflow.
+## Contributing
+
+Adding a chain is small: write `scrapers/<chain>.py` exposing `NAME` and
+`fetch() -> list[Offer]`, register it in `scrapers/__init__.py`, add a store
+label to `stores.py`. Existing scrapers in `scrapers/` are the template.
+
+## License
+
+[MIT](LICENSE) © 2026 David Ninic
