@@ -255,13 +255,6 @@ def write_html(
 
     from collections import defaultdict
 
-    chain_counts: dict[str, int] = {name: 0 for name in STORES}
-    for o in ranked:
-        chain_counts[o.chain] = chain_counts.get(o.chain, 0) + 1
-    chain_names = [name for name in STORES if chain_counts.get(name, 0)]
-    chain_names.extend(name for name in sorted(chain_counts) if name not in chain_names and chain_counts[name])
-    empty_chain_names = [name for name in STORES if not chain_counts.get(name, 0)]
-
     # Build hierarchy: category1 -> category2 -> [offers]
     # Classify every product via product-name keywords so chocolate from any
     # chain lands in "Sladkarije", drinks in "Pijače", etc. Mercator's native
@@ -283,17 +276,6 @@ def write_html(
     # Sort sections by item count
     sections = sorted(hierarchy.items(), key=lambda kv: -sum(len(v) for v in kv[1].values()))
 
-    # Per-chain category counts for dynamic filter buttons.
-    # shape: {chain_name: {category_display_name: count}}
-    import json as _json
-    cat_by_chain: dict[str, dict[str, int]] = {n: {} for n in chain_names}
-    for cat_name, subs in sections:
-        for sub_name, items in subs.items():
-            for o in items:
-                chain_map = cat_by_chain.setdefault(o.chain, {})
-                chain_map[cat_name] = chain_map.get(cat_name, 0) + 1
-    cat_counts_by_chain_json = _json.dumps(cat_by_chain, ensure_ascii=False)
-
     def make_card(o: Offer) -> str:
         img = ""
         if o.image_path:
@@ -312,10 +294,10 @@ def write_html(
         old_html = f'<span class="old-price">{_fmt(o.regular_price)}</span>' if o.regular_price else ''
         return (
             f'<a href="{_esc(o.source_url)}" target="_blank" rel="noopener noreferrer" class="card{extra_cls}" '
-            f'data-name="{_esc(o.product.lower())}" data-chain="{_esc(o.chain)}">'
+            f'data-name="{_esc(o.product.lower())}">'
             f'<div class="card-img">{img}</div>'
             f'<div class="card-body">'
-            f'<div class="card-meta"><span class="chain">{_esc(o.chain)}</span><span class="card-pct">{pct_text}{badge}</span></div>'
+            f'<div class="card-pct">{pct_text}{badge}</div>'
             f'<div class="card-name">{_esc(o.product)}</div>'
             f'<div class="card-prices">{old_html}'
             f'<span class="new-price">{_fmt(o.discount_price)}</span></div>'
@@ -417,25 +399,6 @@ body{{
   margin:0 0 4px;min-height:16px;
 }}
 
-/* === STORE TABS === */
-.chain-tabs{{
-  padding:12px 16px 4px;display:flex;gap:8px;flex-wrap:wrap;
-  justify-content:center;background:var(--bg);
-}}
-.chain-tabs button{{
-  background:var(--surface2);color:var(--text2);
-  border:1px solid var(--border);border-radius:8px;
-  min-height:34px;padding:0 14px;font-size:12px;font-weight:700;
-  cursor:pointer;white-space:nowrap;transition:all .15s;
-}}
-.chain-tabs button:hover:not(:disabled){{background:rgba(255,255,255,.08);color:#fff}}
-.chain-tabs button.active{{
-  background:var(--accent2);color:#000;border-color:var(--accent2);
-}}
-.chain-tabs button:disabled{{
-  opacity:.45;cursor:not-allowed;
-}}
-
 /* === FILTERS === */
 .filters{{
   padding:10px 16px;display:flex;gap:7px;flex-wrap:wrap;
@@ -510,12 +473,7 @@ body{{
 .card-img img{{max-width:100%;max-height:100%;object-fit:contain}}
 
 .card-body{{padding:10px 12px 14px;flex:1;display:flex;flex-direction:column;gap:4px}}
-.card-meta{{display:flex;align-items:center;justify-content:space-between;gap:8px}}
-.card-meta .chain{{
-  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;
-}}
-.card-pct{{font-size:13px;font-weight:800;color:var(--accent);display:flex;align-items:center;gap:5px;flex:none}}
+.card-pct{{font-size:13px;font-weight:800;color:var(--accent);display:flex;align-items:center;gap:5px}}
 .card-name{{
   font-size:12px;font-weight:500;line-height:1.35;color:var(--text2);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
@@ -585,11 +543,6 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
   <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 </div>
 <div class="search-count" id="searchCount"></div>
-<div class="chain-tabs" id="chainTabs">
-  <button class="active" data-chain="all">All stores ({len(ranked)})</button>
-  {''.join('<button data-chain="' + _esc(name) + '">' + _esc(name) + ' (' + str(chain_counts.get(name, 0)) + ')</button>' for name in chain_names)}
-  {''.join('<button data-chain="' + _esc(name) + '" disabled>' + _esc(name) + ' (0)</button>' for name in empty_chain_names)}
-</div>
 <div class="filters" id="filters">
   <button class="active" data-cat="all">Vse ({len(ranked)})</button>
   {''.join('<button data-cat="' + _esc(name) + '">' + _esc(name) + ' (' + str(sum(len(v) for v in subs.values())) + ')</button>' for name, subs in sections)}
@@ -605,14 +558,12 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
 (()=>{{
   const search=document.getElementById('search');
   const btns=document.querySelectorAll('.filters button');
-  const chainBtns=document.querySelectorAll('.chain-tabs button:not(:disabled)');
   const noResults=document.getElementById('noResults');
   const countEl=document.getElementById('searchCount');
   const appRefresh=document.getElementById('appRefresh');
   const catHeaders=document.querySelectorAll('.cat-header');
   const catSections=document.querySelectorAll('.cat-section');
   let activeCat='all';
-  let activeChain='all';
 
   function applyFilters(){{
     const q=search.value.toLowerCase().trim();
@@ -625,11 +576,9 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
       h.classList.remove('hidden');sec.classList.remove('hidden');
       let catVis=0;
       sec.querySelectorAll('.card').forEach(c=>{{
-        /* respect sub-filter: if parent sub-grid is hidden, card stays hidden */
         const subGrid=c.closest('.sub-grid');
         if(subGrid&&subGrid.classList.contains('sub-hidden'))return;
-        const showChain=activeChain==='all'||c.dataset.chain===activeChain;
-        const show=showChain&&(!q||c.dataset.name.includes(q));
+        const show=!q||c.dataset.name.includes(q);
         c.classList.toggle('hidden',!show);
         if(show){{catVis++;visible++}}
       }});
@@ -646,52 +595,8 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
     applyFilters();
   }}));
 
-  chainBtns.forEach(btn=>btn.addEventListener('click',()=>{{
-    chainBtns.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    activeChain=btn.dataset.chain;
-    updateCatButtons();
-    applyFilters();
-  }}));
-
   let tid;
   search.addEventListener('input',()=>{{clearTimeout(tid);tid=setTimeout(applyFilters,120)}});
-
-  /* Per-chain category counts. Used to update filter button labels + disable
-     buttons that would yield zero results for the selected chain. */
-  const catCountsByChain={cat_counts_by_chain_json};
-  const catTotals={{}};
-  btns.forEach(btn=>{{
-    const cat=btn.dataset.cat;
-    if(cat==='all')return;
-    let total=0;
-    for(const ch in catCountsByChain) total+=catCountsByChain[ch][cat]||0;
-    catTotals[cat]=total;
-    btn.dataset.label=btn.textContent.replace(/\s*\(\d+\)\s*$/,'').trim();
-  }});
-  function updateCatButtons(){{
-    btns.forEach(btn=>{{
-      const cat=btn.dataset.cat;
-      if(cat==='all'){{
-        const total=activeChain==='all'?{len(ranked)}:(
-          Object.values(catCountsByChain[activeChain]||{{}}).reduce((a,b)=>a+b,0)
-        );
-        btn.textContent=`Vse (${{total}})`;
-        btn.disabled=total===0;
-        return;
-      }}
-      const n=activeChain==='all'?catTotals[cat]:(catCountsByChain[activeChain]||{{}})[cat]||0;
-      btn.textContent=`${{btn.dataset.label}} (${{n}})`;
-      btn.disabled=n===0;
-      if(n===0&&btn.classList.contains('active')){{
-        btn.classList.remove('active');
-        const allBtn=document.querySelector('.filters button[data-cat="all"]');
-        if(allBtn) allBtn.classList.add('active');
-        activeCat='all';
-      }}
-    }});
-  }}
-  updateCatButtons();
 
   /* Sub-category buttons */
   document.querySelectorAll('.sub-filters').forEach(bar=>{{
