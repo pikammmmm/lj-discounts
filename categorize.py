@@ -84,7 +84,9 @@ _CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
     # elsewhere, etc.
     ("HIGIENA IN LEPOTA", (
         "toaletna voda", "eau de", "parfum", "kolonjska voda",
-        "meglica za telo", "body mist", "darilni set",
+        "meglica za telo", "body mist",
+        "darilni set parfum", "darilni set za nego", "darilni set za telo",
+        "darilni set za moške", "darilni set za ženske",
         "gel za prhanje", "gel za tuširanje", "tuš gel", "šampon", "balzam za lase",
         "balzam za ustnice", "maska za lase", "krema za obraz", "krema za roke",
         "krema za telo", "krema za noge", "balzam za noge",
