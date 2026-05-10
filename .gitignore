@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 offers.db
 cron.log
-android/
+android/*
+!android/twa-manifest.json
 build/
 dist/
 *.spec

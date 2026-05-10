@@ -26,11 +26,13 @@ unzip, and double-click **`run-lj-discounts.cmd`**. The desktop app window
 opens, scrapes, and displays the report. `lj-discounts-cli.exe` is bundled
 for scheduled/headless use.
 
-### Android — Add to Home Screen (PWA)
+### Android — APK
 
-Open the [live site](https://pikammmmm.github.io/lj-discounts/) in Chrome on
-Android → menu → **Add to Home Screen**. Installs as a standalone app with
-its own icon.
+Download `lj-discounts.apk` from the latest
+[release](https://github.com/pikammmmm/lj-discounts/releases/latest) and
+install it (you may need to enable *Install unknown apps* for your browser).
+The APK is a thin wrapper around the live site, so it always shows the
+freshest scrape without going through the Play Store.
 
 ### Run from source — Windows
 
@@ -79,13 +81,15 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
 ├── categorize.py             # grocery vs non-grocery filter
 ├── assets/                   # app icon (ICO + PNG) + generator
 ├── manifest.json             # PWA manifest (served from gh-pages)
+├── android/twa-manifest.json # Bubblewrap config for the Android APK build
 ├── windows/                  # Windows-only launchers bundled in the exe zip
 ├── refresh.{bat,ps1,command} # source-run launchers per platform
 ├── requirements.txt          # scrape-only deps (requests, beautifulsoup4)
 ├── requirements-windows.txt  # adds pywebview for the desktop app
 └── .github/workflows/
     ├── scrape.yml            # daily scrape → gh-pages
-    └── windows.yml           # tag-triggered exe build + release
+    ├── windows.yml           # tag-triggered exe build + release
+    └── android.yml           # tag-triggered APK build + release
 ```
 
 ## Pipeline
@@ -98,6 +102,14 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
    builds `lj-discounts.exe` (desktop) and `lj-discounts-cli.exe`, zips them
    with README and launcher, uploads as an artifact, and attaches the zip to
    the GitHub Release.
+4. **Android APK (tag-triggered):** pushing a `v*` tag also runs
+   `android.yml`, which uses [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap)
+   to wrap the PWA into a Trusted Web Activity APK and attaches
+   `lj-discounts.apk` to the GitHub Release. Set the `ANDROID_KEYSTORE_B64`,
+   `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_PASSWORD` repository secrets
+   to keep the signing key stable across releases (otherwise an ephemeral
+   keystore is generated per build and users can't upgrade between
+   releases).
 
 ## License
 

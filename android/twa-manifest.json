@@ -1,0 +1,41 @@
+{
+  "packageId": "io.github.pikammmmm.ljdiscounts",
+  "host": "pikammmmm.github.io",
+  "name": "LJ Discounts",
+  "launcherName": "LJ Discounts",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#4ade80",
+  "themeColorDark": "#08090d",
+  "navigationColor": "#08090d",
+  "navigationColorDark": "#08090d",
+  "navigationDividerColor": "#08090d",
+  "navigationDividerColorDark": "#08090d",
+  "backgroundColor": "#08090d",
+  "enableNotifications": false,
+  "startUrl": "/lj-discounts/",
+  "iconUrl": "https://pikammmmm.github.io/lj-discounts/icon-512.png",
+  "maskableIconUrl": "https://pikammmmm.github.io/lj-discounts/icon-512.png",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://pikammmmm.github.io/lj-discounts/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://pikammmmm.github.io/lj-discounts/",
+  "minSdkVersion": 21,
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  }
+}
