@@ -25,10 +25,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             android-sdk-build-tools \
-            android-sdk-platform-23 \
             smali \
             default-jdk-headless \
-            zip
+            zip curl
 
       - name: Build APK
         env:
