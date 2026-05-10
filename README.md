@@ -28,11 +28,25 @@ for scheduled/headless use.
 
 ### Android — APK
 
-Download `lj-discounts.apk` from the latest
-[release](https://github.com/pikammmmm/lj-discounts/releases/latest) and
-install it (you may need to enable *Install unknown apps* for your browser).
-The APK is a thin wrapper around the live site, so it always shows the
-freshest scrape without going through the Play Store.
+Grab [`download/lj-discounts.apk`](download/lj-discounts.apk) (also attached
+to every tagged [release](https://github.com/pikammmmm/lj-discounts/releases/latest))
+and install it — you may need to enable *Install unknown apps* for your
+browser. The APK is a tiny WebView shell around the live site that runs
+fullscreen with no URL bar, so it always shows the freshest scrape without
+going through the Play Store.
+
+To rebuild it locally (Debian/Ubuntu):
+
+```bash
+sudo apt-get install -y android-sdk-build-tools android-sdk-platform-23 \
+    smali default-jdk-headless zip
+./android/build.sh   # writes download/lj-discounts.apk
+```
+
+The signing keystore at `android/release.keystore` is committed on purpose
+(password `ljdiscounts`) so anyone with the repo can sign updates that
+existing installs accept. Override `KS_PASS` / `KEY_ALIAS` env vars if you
+generate your own.
 
 ### Run from source — Windows
 
@@ -81,7 +95,13 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
 ├── categorize.py             # grocery vs non-grocery filter
 ├── assets/                   # app icon (ICO + PNG) + generator
 ├── manifest.json             # PWA manifest (served from gh-pages)
-├── android/twa-manifest.json # Bubblewrap config for the Android APK build
+├── android/                  # WebView-wrapper APK source (smali + aapt2)
+│   ├── AndroidManifest.xml
+│   ├── smali/                # MainActivity.smali (Dalvik assembly)
+│   ├── res/                  # icons, strings, theme
+│   ├── release.keystore      # committed signing key (pass: ljdiscounts)
+│   └── build.sh              # apt-only local build
+├── download/lj-discounts.apk # latest signed APK (refreshed by android.yml)
 ├── windows/                  # Windows-only launchers bundled in the exe zip
 ├── refresh.{bat,ps1,command} # source-run launchers per platform
 ├── requirements.txt          # scrape-only deps (requests, beautifulsoup4)
@@ -102,14 +122,14 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
    builds `lj-discounts.exe` (desktop) and `lj-discounts-cli.exe`, zips them
    with README and launcher, uploads as an artifact, and attaches the zip to
    the GitHub Release.
-4. **Android APK (tag-triggered):** pushing a `v*` tag also runs
-   `android.yml`, which uses [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap)
-   to wrap the PWA into a Trusted Web Activity APK and attaches
-   `lj-discounts.apk` to the GitHub Release. Set the `ANDROID_KEYSTORE_B64`,
-   `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_PASSWORD` repository secrets
-   to keep the signing key stable across releases (otherwise an ephemeral
-   keystore is generated per build and users can't upgrade between
-   releases).
+4. **Android APK:** `android.yml` runs `./android/build.sh` on every push to
+   `main` that touches `android/**` (also on tag pushes and via *Run
+   workflow*). It installs Debian's `android-sdk-build-tools`,
+   `android-sdk-platform-23`, and `smali` packages, assembles
+   `MainActivity.smali`, links resources with `aapt2`, signs with the
+   committed keystore, commits the rebuilt `download/lj-discounts.apk` back
+   to `main` (`[skip ci]`-tagged so it doesn't loop), and attaches it to
+   tagged releases.
 
 ## License
 
