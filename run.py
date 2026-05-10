@@ -295,6 +295,7 @@ def write_html(
         return (
             f'<a href="{_esc(o.source_url)}" target="_blank" rel="noopener noreferrer" class="card{extra_cls}" '
             f'data-name="{_esc(o.product.lower())}">'
+            f'<span class="add-btn" role="button" aria-label="Dodaj na seznam" tabindex="0">+</span>'
             f'<div class="card-img">{img}</div>'
             f'<div class="card-body">'
             f'<div class="card-pct">{pct_text}{badge}</div>'
@@ -451,13 +452,30 @@ body{{
 
 /* === CARDS — no blur, no pseudo-elements, lightweight === */
 .card{{
-  display:flex;flex-direction:column;
+  display:flex;flex-direction:column;position:relative;
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--r);
   overflow:hidden;text-decoration:none;color:var(--text);
   transition:transform .15s,box-shadow .15s,border-color .15s;
 }}
+.add-btn{{
+  position:absolute;top:6px;right:6px;z-index:2;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(8,9,13,.78);color:var(--text);
+  border:1px solid var(--border);
+  display:grid;place-items:center;
+  font-size:18px;font-weight:700;line-height:1;
+  cursor:pointer;user-select:none;
+  transition:background .15s,color .15s,border-color .15s,transform .15s;
+}}
+.add-btn:hover{{background:var(--accent);color:#000;border-color:var(--accent)}}
+.card.in-list{{border-color:var(--accent)}}
+.card.in-list .add-btn{{
+  background:var(--accent);color:#000;border-color:var(--accent);
+  font-size:0;
+}}
+.card.in-list .add-btn::before{{content:"\\2713";font-size:14px;color:#000}}
 .card:hover{{
   transform:translateY(-2px);
   border-color:rgba(255,255,255,.12);
@@ -499,6 +517,84 @@ body{{
 .app-refresh:hover{{filter:brightness(1.05)}}
 .app-refresh:disabled{{opacity:.65;cursor:wait}}
 body.app-mode .app-refresh{{display:grid;place-items:center}}
+body.app-mode #listFab{{bottom:78px}}
+
+/* === SHOPPING LIST FAB + DRAWER === */
+#listFab{{
+  position:fixed;right:18px;bottom:18px;z-index:40;
+  display:grid;place-items:center;
+  width:52px;height:52px;border:0;border-radius:26px;
+  background:var(--surface2);color:var(--text);
+  border:1px solid var(--border);
+  cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.45);
+  transition:background .15s,color .15s,transform .15s;
+}}
+#listFab:hover{{background:var(--accent);color:#000;border-color:var(--accent)}}
+#listFab svg{{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none}}
+#listFab .badge-count{{
+  position:absolute;top:-4px;right:-4px;
+  min-width:20px;height:20px;padding:0 6px;
+  border-radius:10px;background:var(--accent);color:#000;
+  font-size:11px;font-weight:800;display:none;
+  align-items:center;justify-content:center;
+}}
+#listFab.has-items .badge-count{{display:flex}}
+
+#listPanel{{
+  position:fixed;inset:0;z-index:50;
+  background:rgba(0,0,0,.55);display:none;
+}}
+#listPanel.open{{display:flex;align-items:flex-end;justify-content:center}}
+#listPanel .sheet{{
+  width:100%;max-width:560px;max-height:80vh;
+  background:var(--surface);
+  border-top-left-radius:18px;border-top-right-radius:18px;
+  display:flex;flex-direction:column;
+  box-shadow:0 -8px 32px rgba(0,0,0,.5);
+}}
+#listPanel .sheet-head{{
+  padding:14px 18px;display:flex;align-items:center;gap:12px;
+  border-bottom:1px solid var(--border);
+}}
+#listPanel .sheet-head h2{{font-size:16px;font-weight:700;flex:1}}
+#listPanel .sheet-head button{{
+  background:transparent;border:0;color:var(--text2);
+  font-size:13px;cursor:pointer;padding:6px 10px;border-radius:8px;
+}}
+#listPanel .sheet-head button:hover{{color:#fff;background:var(--surface2)}}
+#listPanel .sheet-body{{
+  padding:8px 0;overflow-y:auto;
+}}
+.list-row{{
+  display:flex;align-items:center;gap:12px;padding:10px 18px;
+  border-bottom:1px solid var(--border);
+}}
+.list-row:last-child{{border-bottom:0}}
+.list-row .li-img{{
+  width:42px;height:42px;border-radius:8px;background:var(--surface2);
+  display:grid;place-items:center;overflow:hidden;flex-shrink:0;
+}}
+.list-row .li-img img{{max-width:100%;max-height:100%;object-fit:contain}}
+.list-row .li-name{{
+  flex:1;font-size:13px;color:var(--text);line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}}
+.list-row .li-price{{
+  font-size:14px;font-weight:700;color:var(--yellow);flex-shrink:0;
+}}
+.list-row .li-remove{{
+  background:transparent;border:0;color:var(--text3);
+  width:28px;height:28px;border-radius:50%;cursor:pointer;
+  font-size:18px;line-height:1;flex-shrink:0;
+}}
+.list-row .li-remove:hover{{color:var(--red);background:var(--surface2)}}
+.list-empty{{padding:32px 18px;text-align:center;color:var(--text3);font-size:14px}}
+@media(min-width:768px){{
+  #listPanel.open{{align-items:center}}
+  #listPanel .sheet{{
+    border-radius:18px;max-height:70vh;
+  }}
+}}
 
 /* === DESKTOP === */
 @media(min-width:768px){{
@@ -553,6 +649,22 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
 </div>
 <div class="no-results" id="noResults">No results found</div>
 <button class="app-refresh" id="appRefresh" title="Refresh" aria-label="Refresh">↻</button>
+<button id="listFab" type="button" title="Moj seznam" aria-label="Moj seznam">
+  <svg viewBox="0 0 24 24"><path d="M9 5h10M9 12h10M9 19h10"/><circle cx="4.5" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="19" r="1.2" fill="currentColor" stroke="none"/></svg>
+  <span class="badge-count" id="listCount">0</span>
+</button>
+<div id="listPanel" role="dialog" aria-label="Moj seznam">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Moj seznam (<span id="listHeadCount">0</span>)</h2>
+      <button type="button" id="listClear">Počisti</button>
+      <button type="button" id="listClose">Zapri</button>
+    </div>
+    <div class="sheet-body" id="listBody">
+      <div class="list-empty">Seznam je prazen. Pritisni + na izdelku, da ga dodaš.</div>
+    </div>
+  </div>
+</div>
 
 <script>
 (()=>{{
@@ -631,6 +743,144 @@ body.app-mode .app-refresh{{display:grid;place-items:center}}
     enableAppMode();
   }}
   window.addEventListener('pywebviewready',enableAppMode);
+
+  /* === Shopping list (localStorage) === */
+  const LIST_KEY='lj-list-v1';
+  const fab=document.getElementById('listFab');
+  const fabCount=document.getElementById('listCount');
+  const headCount=document.getElementById('listHeadCount');
+  const panel=document.getElementById('listPanel');
+  const panelBody=document.getElementById('listBody');
+  const closeBtn=document.getElementById('listClose');
+  const clearBtn=document.getElementById('listClear');
+
+  function loadList(){{
+    try{{return JSON.parse(localStorage.getItem(LIST_KEY))||{{}};}}catch(e){{return {{}};}}
+  }}
+  function saveList(l){{
+    try{{localStorage.setItem(LIST_KEY,JSON.stringify(l));}}catch(e){{}}
+  }}
+  function refreshFab(){{
+    const list=loadList();
+    const n=Object.keys(list).length;
+    fabCount.textContent=n;
+    headCount.textContent=n;
+    fab.classList.toggle('has-items',n>0);
+  }}
+  function markCards(){{
+    const list=loadList();
+    document.querySelectorAll('.card[data-name]').forEach(c=>{{
+      c.classList.toggle('in-list',!!list[c.dataset.name]);
+    }});
+  }}
+  function renderList(){{
+    const list=loadList();
+    const keys=Object.keys(list).sort((a,b)=>(list[b].added||0)-(list[a].added||0));
+    if(!keys.length){{
+      panelBody.innerHTML='<div class="list-empty">Seznam je prazen. Pritisni + na izdelku, da ga dodaš.</div>';
+      return;
+    }}
+    panelBody.innerHTML=keys.map(k=>{{
+      const it=list[k];
+      const img=it.img?'<img src="'+escapeAttr(it.img)+'" alt="">':'';
+      return '<div class="list-row" data-key="'+escapeAttr(k)+'">'
+        +'<div class="li-img">'+img+'</div>'
+        +'<a class="li-name" href="'+escapeAttr(it.url||'#')+'" target="_blank" rel="noopener">'+escapeHtml(it.name||k)+'</a>'
+        +'<div class="li-price">'+escapeHtml(it.price||'')+'</div>'
+        +'<button class="li-remove" type="button" aria-label="Odstrani">×</button>'
+        +'</div>';
+    }}).join('');
+  }}
+  function escapeHtml(s){{return String(s).replace(/[&<>"']/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]));}}
+  function escapeAttr(s){{return escapeHtml(s);}}
+
+  function toggleItem(card){{
+    const key=card.dataset.name;
+    if(!key)return;
+    const list=loadList();
+    if(list[key]){{
+      delete list[key];
+    }}else{{
+      const nameEl=card.querySelector('.card-name');
+      const priceEl=card.querySelector('.new-price');
+      const imgEl=card.querySelector('.card-img img');
+      list[key]={{
+        name:nameEl?nameEl.textContent:key,
+        price:priceEl?priceEl.textContent:'',
+        url:card.href||'',
+        img:imgEl?imgEl.getAttribute('src')||'':'',
+        added:Date.now(),
+      }};
+    }}
+    saveList(list);
+    refreshFab();
+    markCards();
+    if(panel.classList.contains('open'))renderList();
+  }}
+
+  document.querySelectorAll('.add-btn').forEach(btn=>{{
+    const handler=e=>{{
+      e.preventDefault();
+      e.stopPropagation();
+      const card=btn.closest('.card');
+      if(card)toggleItem(card);
+    }};
+    btn.addEventListener('click',handler);
+    btn.addEventListener('keydown',e=>{{
+      if(e.key==='Enter'||e.key===' ')handler(e);
+    }});
+  }});
+
+  fab.addEventListener('click',()=>{{
+    renderList();
+    panel.classList.add('open');
+  }});
+  closeBtn.addEventListener('click',()=>panel.classList.remove('open'));
+  panel.addEventListener('click',e=>{{if(e.target===panel)panel.classList.remove('open');}});
+  clearBtn.addEventListener('click',()=>{{
+    if(!confirm('Počistim cel seznam?'))return;
+    saveList({{}});
+    refreshFab();
+    markCards();
+    renderList();
+  }});
+  panelBody.addEventListener('click',e=>{{
+    const rm=e.target.closest('.li-remove');
+    if(!rm)return;
+    const row=rm.closest('.list-row');
+    const key=row&&row.dataset.key;
+    if(!key)return;
+    const list=loadList();
+    delete list[key];
+    saveList(list);
+    refreshFab();
+    markCards();
+    renderList();
+  }});
+
+  /* On load: ask whether to remove items that are no longer on discount. */
+  function checkOffDiscount(){{
+    const list=loadList();
+    const keys=Object.keys(list);
+    if(!keys.length)return;
+    const onSale=new Set();
+    document.querySelectorAll('.card[data-name]').forEach(c=>onSale.add(c.dataset.name));
+    let changed=false;
+    for(const k of keys){{
+      if(onSale.has(k))continue;
+      const label=list[k].name||k;
+      if(confirm('"'+label+'" ni več v akciji.\\nOdstranim s seznama?')){{
+        delete list[k];
+        changed=true;
+      }}
+    }}
+    if(changed)saveList(list);
+  }}
+
+  refreshFab();
+  markCards();
+  /* Defer the prompt so the page paints first. */
+  setTimeout(checkOffDiscount,400);
 }})();
 </script>
 </body></html>""", encoding="utf-8")
