@@ -5,6 +5,18 @@ on:
     - cron: '0 5 * * *'   # 7:00 CET (5:00 UTC)
     - cron: '0 10 * * *'  # 12:00 CET (10:00 UTC)
   workflow_dispatch: {}    # manual trigger button
+  push:
+    branches: [main]
+    paths:
+      - "run.py"
+      - "categorize.py"
+      - "scrapers/**"
+      - "models.py"
+      - "stores.py"
+      - "weird.py"
+      - "manifest.json"
+      - "assets/icon-*.png"
+      - ".github/workflows/scrape.yml"
 
 permissions:
   contents: write
@@ -30,8 +42,11 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           cp offers.html index.html
+          # Stage every asset the HTML/PWA references so gh-pages serves them.
+          cp assets/icon-192.png .
+          cp assets/icon-512.png .
           git checkout --orphan gh-pages-new
           git rm -rf . --cached
-          git add index.html offers.html
+          git add index.html offers.html manifest.json icon-192.png icon-512.png
           git commit -m "update $(date -u +%Y-%m-%d_%H:%M)"
           git push origin gh-pages-new:gh-pages --force
