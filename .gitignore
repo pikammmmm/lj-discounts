@@ -4,6 +4,7 @@ __pycache__/
 offers.db
 cron.log
 android/build/
+android/.cache/
 build/
 dist/
 *.spec

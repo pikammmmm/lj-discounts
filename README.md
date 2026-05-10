@@ -38,10 +38,14 @@ going through the Play Store.
 To rebuild it locally (Debian/Ubuntu):
 
 ```bash
-sudo apt-get install -y android-sdk-build-tools android-sdk-platform-23 \
-    smali default-jdk-headless zip
+sudo apt-get install -y android-sdk-build-tools smali \
+    default-jdk-headless zip curl
 ./android/build.sh   # writes download/lj-discounts.apk
 ```
+
+The script fetches `android-34.jar` from a GitHub mirror on first run
+(cached under `android/.cache/`) since Debian doesn't ship a recent
+`android-sdk-platform-*` package.
 
 The signing keystore at `android/release.keystore` is committed on purpose
 (password `ljdiscounts`) so anyone with the repo can sign updates that
@@ -124,12 +128,13 @@ python run.py [--html PATH] [--db PATH] [--top N] [--stale-days N] [--open|--no-
    the GitHub Release.
 4. **Android APK:** `android.yml` runs `./android/build.sh` on every push to
    `main` that touches `android/**` (also on tag pushes and via *Run
-   workflow*). It installs Debian's `android-sdk-build-tools`,
-   `android-sdk-platform-23`, and `smali` packages, assembles
-   `MainActivity.smali`, links resources with `aapt2`, signs with the
-   committed keystore, commits the rebuilt `download/lj-discounts.apk` back
-   to `main` (`[skip ci]`-tagged so it doesn't loop), and attaches it to
-   tagged releases.
+   workflow*). It installs Debian's `android-sdk-build-tools` and `smali`
+   packages, fetches `android-34.jar` from a GitHub mirror so the APK
+   targets a current Android API (Debian's newest platform jar is API 23,
+   which Android 14 rejects), assembles `MainActivity.smali`, links
+   resources with `aapt2`, signs with the committed keystore, commits the
+   rebuilt `download/lj-discounts.apk` back to `main` (`[skip ci]`-tagged
+   so it doesn't loop), and attaches it to tagged releases.
 
 ## License
 
