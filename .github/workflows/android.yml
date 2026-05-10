@@ -1,0 +1,99 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli@latest
+
+      - name: Resolve signing keystore
+        id: keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          cd android
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            echo "Using keystore from repository secrets."
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > android.keystore
+            echo "ks_pass=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_OUTPUT"
+            echo "key_pass=$ANDROID_KEY_PASSWORD" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_B64 secret set. Generating an ephemeral keystore."
+            echo "::warning::APKs built across runs will have different signatures, so users won't be able to update between releases until a persistent keystore is added."
+            keytool -genkeypair \
+              -keystore android.keystore \
+              -alias android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=LJ Discounts, OU=Dev, O=lj-discounts, L=Ljubljana, S=SI, C=SI"
+            echo "ks_pass=android" >> "$GITHUB_OUTPUT"
+            echo "key_pass=android" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Android project from PWA manifest
+        working-directory: android
+        run: |
+          set -e
+          # `bubblewrap update` regenerates the Android project from twa-manifest.json
+          # without prompting, unlike `init` which is interactive.
+          bubblewrap update --skipVersionUpgrade
+
+      - name: Build APK
+        working-directory: android
+        env:
+          KS_PASS: ${{ steps.keystore.outputs.ks_pass }}
+          KEY_PASS: ${{ steps.keystore.outputs.key_pass }}
+        run: |
+          set -e
+          bubblewrap build \
+            --skipPwaValidation \
+            --signingKeyPath="./android.keystore" \
+            --signingKeyAlias="android" \
+            --keystorePassword="$KS_PASS" \
+            --keyPassword="$KEY_PASS"
+
+      - name: Stage release artifact
+        run: |
+          mkdir -p out
+          cp android/app-release-signed.apk out/lj-discounts.apk
+          # Print the SHA-256 fingerprint so it can be added to assetlinks.json.
+          keytool -list -v -keystore android/android.keystore \
+            -alias android -storepass "${{ steps.keystore.outputs.ks_pass }}" \
+            | grep -E "SHA256:" || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lj-discounts-apk
+          path: out/lj-discounts.apk
+
+      - name: Attach APK to tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/lj-discounts.apk
