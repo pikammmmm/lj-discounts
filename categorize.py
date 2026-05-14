@@ -63,6 +63,12 @@ def is_grocery(product: str) -> bool:
 # Order matters: first match wins in a single pass, so narrower keywords go
 # first. Lowercased; matched with plain `in` against lowered product name.
 #
+# Brand-specific keywords (e.g. "milka", "pringles") come before generic
+# words (e.g. "čokolad") so a product named only by its brand still matches.
+# Snacks / sweets / drinks are checked BEFORE produce because produce
+# keywords like "paprik" / "jagod" / "pomaranč" double as flavour
+# descriptors for chips, yogurts, and juices.
+#
 # Prefer stems ("čokolad") over full words ("čokolada") to cover declensions.
 # Where a bare word would have false positives elsewhere (e.g. "med" inside
 # "medicin"), the pattern is padded with a space or comma.
@@ -115,57 +121,42 @@ _CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
         "pralni prašek", "prašek za perilo", "mehčalec", "detergent",
         "belo perilo", "kapsul za perilo", "čistil",
         "osvežilec", "bref", "glorix", "cif", "ajax", "pronto",
-        "ariel", "persil", "lenor", "vanish", "sidol", "ata",
+        "ariel", "persil", "lenor", "vanish", "sidol",
+        "ata univerz", "ata krema", "ata praškast",
         "milo za pomivanje", "gobic za posod", "pomivaln gobic",
         "abrazivne gobic", "gospodinj gobic", "krpe za čiščenje",
         "wc ", "za wc", "za kopalnico", "za kuhinjo",
         "čistilne krpe", "talne krpe", "gobic",
     )),
-    # Bread & baked goods
-    ("SVEŽ KRUH IN PECIVO", (
-        "kruh", "štručk", "pecivo", "žemlj", "rogljič", "bageta", "burek",
-        "pita", "tortilj", "pizza testo", "testo za", "krof",
-        "lepinja", "pletenka", "toast", "drobtine", "krušne drobtine",
-        "listnato testo", "vlečeno testo",
+    # Sweets — checked before produce so "Milka jagoda" doesn't hit "jagod".
+    ("ČOKOLADA IN DRUGI SLADKI PROGRAM", (
+        "milka", "lindt", "kinder", "ferrero", "rafaello", "raffaello",
+        "merci", "toblerone", "snickers", "mars,", "twix", "bounty",
+        "m&m", "haribo",
+        "čokolad", "čoko ", "čokoladno jajc",
+        "bonbon", "bombonjer", "lizik", "gumijasti bonbon", "žele bonbon",
+        "karamele",
+        "piškot", "keks", "oblat", "napolitank", "wafer", "biskvit",
+        "praline", "truffle", "sladoled",
+        "rezine farciti", "rezine s kakav", "kakavov krem", "kakav,",
+        "benquick", "cacao",
+        "bigne",
     )),
-    # Dairy & eggs (note: ovsen napitek routed to PIJAČE above)
-    ("MLEKO, JAJCA IN MLEČNI IZDELKI", (
-        "mleko", "sojin napitek", "mandljev napitek",
-        "jogurt", "kefir", "skuta", "maslo", "margarin",
-        "smetana", "krema za stepanje", "kajmak", "sirni namaz",
-        "sir,", "sir ", "sirov narezek", "nizozemska gavda",
-        "edamec", "gauda", "gavda", "gouda", "mozzarella", "feta", "parmezan",
-        "mascarpone", "ricotta", "čedar", "emental", "topljen sir",
-        "maasdamer", "skyr",
-        "jajca", "jajčk",
-        "puding", "mlečn",
+    # Savoury snacks — also before produce ("Lay's čips paprika" must hit
+    # "čips" / "lay's" before "paprik").
+    ("SLANI PRIGRIZKI IN APERITIVI (JEDI)", (
+        "pringles", "lay's", "lays ", "doritos", "ruffles", "chio", "tuc",
+        "čips", "smoki", "flips", "palčk slanin", "krekerj", "pretzel", "prestec",
+        "pokovk", "popcorn",
+        "oreščki", "arašid", "mandlji", "lešnik", "orehi",
+        "orehova jedrc", "indijski oreh", "pistacij",
+        "sončnič seme", "sončnična sem", "bučnic", "bučn seme",
+        "sezam", "lan seme", "chia seme",
+        "slan prigrizek", "slani prigrizek", "aperitiv",
+        "prigrizek iz", "energijska ploščic", "proteinsk ploščic",
     )),
-    # Meat & fish
-    ("MESO, MESNI IZDELKI IN RIBE", (
-        "piščanec", "piščančj", "piščančj", "puranj", "puran", "račk",
-        "govedin", "goved", "svinjsk", "teletin", "jagnj",
-        "mleto meso", "mleto mešano", "čevapčič", "pleskavic", "mesni pripravek",
-        "klobas", "hrenovk", "salam", "paštet", "šunk", "pršut",
-        "slanin", "panceta", "špeh",
-        "ribje palčk", "ribji file", "ribje", "tunin zrezek",
-        "tuna", "losos", "skuš", "sardin",
-        "inčun", "škamp", "kozic", "hobotnic", "lignji", "polž",
-        "fileti",
-    )),
-    # Fruit & vegetables (fresh produce, not canned)
-    ("SADJE IN ZELENJAVA", (
-        "jabolk", "jabolčna kaša", "banan", "pomaranč", "citron", "limone",
-        "mandarin",
-        "grenivk", "ananas", "grozdj", "jagode", "borovnic", "maline",
-        "češnje", "hruške", "breskv", "marelice", "slive", "kivi", "lubenic",
-        "melone", "mango", "papaja", "granatno jabolk",
-        "paradižnik", "kumar", "solat", "špinač", "korenček",
-        "krompir", "čebul", "česen", "paprik", "zelje", "bučke", "cvetača",
-        "brokoli", "gob ", "gobe", "šampinjoni", "avokad", "ingver", "rukola",
-        "radič", "koleraba", "redkvice", "rdeč repa",
-        "beluš", "šparglj",
-    )),
-    # Drinks
+    # Drinks — before produce so juices ("pomarančni sok") and fruit teas
+    # ("ledeni čaj malina") don't get pulled into SADJE.
     ("PIJAČE", (
         "pivo", "radler", "ale", "stout", "lager",
         "vino", "cviček", "teran", "refošk", "šampanj", "prosek", "prosecco",
@@ -180,12 +171,13 @@ _CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
         "mineralna voda", "gazirana voda", "negazirana voda", "slatina",
         "radenska", "jamnica", "pfanner", "malt",
         "pijača,", "pijača ", "napitek,", "napitek ", "napitek",
-        "ovsen napitek", "ovseni napitek",
+        "ovsen napitek", "ovseni napitek", "sojin napitek", "mandljev napitek",
         "cocktail", "koktejl", "koktajl", "cocta",
         "rioja", "toscana", "amarone", "chianti", "merlot", "cabernet",
         "riesling", "sauvignon", "chardonnay", "grande", "cremant",
     )),
-    # Breakfast — coffee, tea, cereal, spreads
+    # Breakfast — coffee, tea, cereal, spreads. Before produce so jam
+    # ("marmelada jagoda") and breakfast spreads aren't pulled into SADJE.
     ("VSE ZA ZAJTRK", (
         "kava,", "kava ", "kave ", "kave,", "kavne kapsul", "kavni napitek",
         "mleta kava", "instant kava", "nescafe", "nespresso", "tassimo",
@@ -195,26 +187,51 @@ _CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
         "arašidov maslo", "med,", "med ", "medi ",
         "marmelad", "džem", "konfitur",
     )),
-    # Sweets, chocolate, ice cream, cookies
-    ("ČOKOLADA IN DRUGI SLADKI PROGRAM", (
-        "čokolad", "milka", "toblerone", "kinder", "m&m", "snickers", "twix",
-        "mars,", "bounty",
-        "bonbon", "bombonjer", "lizik", "gumijasti bonbon", "žele bonbon", "karamele",
-        "piškot", "keks", "oblat", "napolitank", "wafer", "biskvit",
-        "čoko ", "praline", "truffle", "sladoled", "čokoladno jajc",
-        "rezine farciti", "rezine s kakav", "kakavov krem", "kakav,",
-        "benquick", "cacao",
-        "bigne",
+    # Bread & baked goods
+    ("SVEŽ KRUH IN PECIVO", (
+        "kruh", "štručk", "pecivo", "žemlj", "rogljič", "bageta", "burek",
+        "pita", "tortilj", "pizza testo", "testo za", "krof",
+        "lepinja", "pletenka", "toast", "drobtine", "krušne drobtine",
+        "listnato testo", "vlečeno testo",
     )),
-    # Savoury snacks
-    ("SLANI PRIGRIZKI IN APERITIVI (JEDI)", (
-        "čips", "smoki", "flips", "palčk slanin", "krekerj", "pretzel", "prestec",
-        "pokovk", "popcorn", "oreščki", "arašid", "mandlji", "lešnik", "orehi",
-        "orehova jedrc", "indijski oreh", "pistacij",
-        "sončnič seme", "sončnična sem", "bučnic", "bučn seme",
-        "sezam", "lan seme", "chia seme",
-        "slan prigrizek", "slani prigrizek", "aperitiv",
-        "prigrizek iz", "ploščic", "energijska ploščic", "proteinsk ploščic",
+    # Dairy & eggs. NOTE: dropped the bare "mlečn" stem because it caught
+    # "mlečna čokolada"; the brand list above now claims dairy chocolate.
+    ("MLEKO, JAJCA IN MLEČNI IZDELKI", (
+        "mleko",
+        "jogurt", "kefir", "skuta", "maslo", "margarin",
+        "smetana", "krema za stepanje", "kajmak", "sirni namaz",
+        "sir,", "sir ", "sirov narezek", "nizozemska gavda",
+        "edamec", "gauda", "gavda", "gouda", "mozzarella", "feta", "parmezan",
+        "mascarpone", "ricotta", "čedar", "emental", "topljen sir",
+        "maasdamer", "skyr",
+        "jajca", "jajčk",
+        "puding", "mlečni izdelek", "mlečni napitek",
+    )),
+    # Meat & fish
+    ("MESO, MESNI IZDELKI IN RIBE", (
+        "piščanec", "piščančj", "piščančj", "puranj", "puran", "račk",
+        "govedin", "goved", "svinjsk", "teletin", "jagnj",
+        "mleto meso", "mleto mešano", "čevapčič", "pleskavic", "mesni pripravek",
+        "klobas", "hrenovk", "salam", "paštet", "šunk", "pršut",
+        "slanin", "panceta", "špeh",
+        "ribje palčk", "ribji file", "ribje", "tunin zrezek",
+        "tuna", "losos", "skuš", "sardin",
+        "inčun", "škamp", "kozic", "hobotnic", "lignji", "polž",
+        "fileti",
+    )),
+    # Fresh produce — last among grocery rules so flavour descriptors
+    # ("paprika čips", "jagodov jogurt") don't beat the real category.
+    ("SADJE IN ZELENJAVA", (
+        "jabolk", "jabolčna kaša", "banan", "pomaranč", "citron", "limone",
+        "mandarin",
+        "grenivk", "ananas", "grozdj", "jagode", "borovnic", "maline",
+        "češnje", "hruške", "breskv", "marelice", "slive", "kivi", "lubenic",
+        "melone", "mango", "papaja", "granatno jabolk",
+        "paradižnik", "kumar", "solat", "špinač", "korenček",
+        "krompir", "čebul", "česen", "paprik", "zelje", "bučke", "cvetača",
+        "brokoli", "gob ", "gobe", "šampinjoni", "avokad", "ingver", "rukola",
+        "radič", "koleraba", "redkvice", "rdeč repa",
+        "beluš", "šparglj",
     )),
     # Pasta, rice, sauces, soups
     ("TESTENINE, JUHE, RIŽ IN OMAKE", (
@@ -345,3 +362,163 @@ def infer_category1(product: str, fallback: str | None = None) -> str | None:
             if kw in p:
                 return cat
     return fallback
+
+
+# Curated subcategory inference within a category1.
+# Uses the same first-match-wins approach as _CATEGORY_RULES. The trailing
+# ("Drugo", ()) entry is the catch-all bucket for anything that didn't match.
+_SUB_RULES: dict[str, list[tuple[str, tuple[str, ...]]]] = {
+    "HIGIENA IN LEPOTA": [
+        ("Lasna nega", (
+            "šampon", "balzam za lase", "maska za lase",
+            "barva za lase", "lak za lase", "pena za lase", "vosek za lase",
+        )),
+        ("Oralna nega", (
+            "zobna past", "zobna krtač", "zobna nitk", "ustna voda",
+            "zobna ", "zobni ",
+        )),
+        ("Telesna nega", (
+            "gel za prhanje", "gel za tuširanje", "tuš gel",
+            "krema za roke", "krema za telo", "krema za noge",
+            "krema za obraz", "balzam za noge", "balzam za ustnice",
+            "telesno mleko", "losjon", "deodorant", "antiperspirant", "roll-on",
+            "milo,", "milo ", "tekoče milo", "piling", "serum",
+        )),
+        ("Make-up in nohti", (
+            "šminka", "maskara", "puder", "rdečilo", "senčil", "korektor",
+            "svinčnik za obrvi", "črtalo za obrvi", "gel za obrvi",
+            "set za oblikovanje obrvi", "obrvi",
+            "lak za nohte", "odstranjevalec laka", "pilnic za nohte",
+        )),
+        ("Parfumi in darilni seti", (
+            "toaletna voda", "eau de", "parfum", "kolonjska voda",
+            "meglica za telo", "body mist",
+            "darilni set parfum", "darilni set za nego", "darilni set za telo",
+            "darilni set za moške", "darilni set za ženske",
+        )),
+        ("Britje", (
+            "britvic", "brivnik", "brivn gel", "pena za britje",
+            "aftershave", "after shave",
+        )),
+        ("Plenice", ("plenic", "plenice", "pampers", "huggies")),
+        ("Higienski papir", (
+            "toaletni papir", "wc papir",
+            "papirnat robč", "papirnat brisač",
+            "vlažiln robček", "vlažilni robček", "vlažni robč", "čist robček",
+            "serviete", "prtički za", "razkužil",
+        )),
+        ("Vložki in tamponi", (
+            "vložki", "tamponi", "dnevni vložki",
+            "intimna higijena", "intimna nega",
+        )),
+        ("Zaščita pred soncem", ("sončna krema", "sunscreen", "after sun")),
+    ],
+    "SLANI PRIGRIZKI IN APERITIVI (JEDI)": [
+        ("Čips", (
+            "pringles", "lay's", "lays ", "doritos", "ruffles", "chio", "tuc",
+            "čips",
+        )),
+        ("Flips in smoki", ("flips", "smoki")),
+        ("Krekerji in slane palčke", (
+            "krekerj", "pretzel", "prestec", "palčk slanin",
+        )),
+        ("Pokovka", ("pokovk", "popcorn")),
+        ("Oreščki in semena", (
+            "oreščki", "arašid", "mandlji", "lešnik", "orehi",
+            "orehova jedrc", "indijski oreh", "pistacij",
+            "sončnič seme", "sončnična sem", "bučnic", "bučn seme",
+            "sezam", "lan seme", "chia seme",
+        )),
+        ("Energijske ploščice", ("energijska ploščic", "proteinsk ploščic")),
+    ],
+    "ČOKOLADA IN DRUGI SLADKI PROGRAM": [
+        ("Čokolada", (
+            "milka", "lindt", "kinder", "ferrero", "rafaello", "raffaello",
+            "merci", "toblerone", "snickers", "mars,", "twix", "bounty",
+            "m&m", "čokolad", "čoko ", "čokoladno jajc",
+        )),
+        ("Bonboni in želeji", (
+            "bonbon", "bombonjer", "lizik", "gumijasti bonbon",
+            "žele bonbon", "karamele", "haribo",
+        )),
+        ("Piškoti in vafli", (
+            "piškot", "keks", "oblat", "napolitank", "wafer", "biskvit",
+        )),
+        ("Sladoled", ("sladoled",)),
+        ("Krepke sladice", (
+            "praline", "truffle", "rezine farciti", "rezine s kakav",
+            "kakavov krem", "kakav,", "benquick", "cacao", "bigne",
+        )),
+    ],
+    "PIJAČE": [
+        ("Pivo", ("pivo", "radler", "ale", "stout", "lager", "malt")),
+        ("Vino in šampanjec", (
+            "vino", "cviček", "teran", "refošk", "šampanj", "prosek",
+            "prosecco", "penina", "frizzante", "fruitysecco", "secco",
+            "rioja", "toscana", "amarone", "chianti", "merlot", "cabernet",
+            "riesling", "sauvignon", "chardonnay", "grande", "cremant",
+        )),
+        ("Žgane pijače", (
+            "viski", "whiskey", "gin", "vodka", "tequila", "rum", "liker",
+            "brinjevec", "šnops", "šnopc", "žganje", "aperitiv",
+            "hugo", "aperol", "campari", "borovničevec", "cocktail",
+            "koktejl", "koktajl",
+        )),
+        ("Sokovi in nektarji", (
+            "sok", "nektar", "limonada", "pfanner",
+        )),
+        ("Gazirane pijače", (
+            "gazirana", "cola", "coca", "cocka", "fanta", "sprite",
+            "pepsi", "schweppes", "tonic", "tonik", "bitter lemon", "cocta",
+        )),
+        ("Energijske pijače", (
+            "energijska pijača", "energy drink", "red bull", "monster",
+        )),
+        ("Voda", (
+            "mineralna voda", "gazirana voda", "negazirana voda",
+            "slatina", "radenska", "jamnica",
+        )),
+        ("Ledeni čaj", ("ledeni čaj", "ice tea", "cedevita")),
+        ("Cider", ("cider",)),
+        ("Rastlinski napitki", (
+            "ovsen napitek", "ovseni napitek",
+            "sojin napitek", "mandljev napitek",
+        )),
+    ],
+    "VSE ZA ZAJTRK": [
+        ("Kava", (
+            "kava,", "kava ", "kave ", "kave,", "kavne kapsul",
+            "kavni napitek", "mleta kava", "instant kava",
+            "nescafe", "nespresso", "tassimo",
+        )),
+        ("Čaj", ("čaj,", "čaj ", "čajn", "čajna mešan")),
+        ("Kosmiči in musli", (
+            "kosmič", "ovseni kosmič", "musli", "granola", "corn flakes",
+            "čokolino",
+        )),
+        ("Sladki namazi", (
+            "čokoladni namaz", "nutella", "lešnikov namaz", "arašidov maslo",
+        )),
+        ("Marmelade in med", (
+            "marmelad", "džem", "konfitur", "med,", "med ", "medi ",
+        )),
+    ],
+}
+
+
+def infer_category2(product: str, cat1_key: str) -> str | None:
+    """Guess a curated subcategory within a known cat1.
+
+    Returns ``None`` for cat1s without curated subcategory rules — callers
+    should then fall back to the source's own subcategory or just use the
+    parent label. Returns ``"Drugo"`` when the cat1 is curated but no
+    keyword matched.
+    """
+    if not product or cat1_key not in _SUB_RULES:
+        return None
+    p = product.lower()
+    for sub_name, kws in _SUB_RULES[cat1_key]:
+        for kw in kws:
+            if kw in p:
+                return sub_name
+    return "Drugo"
