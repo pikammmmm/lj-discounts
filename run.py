@@ -261,16 +261,25 @@ def write_html(
     # category1 is kept as a fallback when inference finds no keyword match;
     # for other chains the fallback is "Ostalo" since their category1 is just
     # the chain name.
-    from categorize import infer_category1
+    #
+    # For sub-grouping, infer_category2 returns a curated subcategory inside
+    # the known categories (so e.g. a chip-flavoured "paprika" stays under
+    # "Čips" and not under whatever Mercator labelled it). When the cat1
+    # has no curated subcategories, we fall back to the source's category2.
+    from categorize import infer_category1, infer_category2
 
     hierarchy: dict[str, dict[str, list[Offer]]] = defaultdict(lambda: defaultdict(list))
     for o in ranked:
         native = o.category1 if o.category1 in CATEGORY_LABELS else None
         cat1_raw = infer_category1(o.product, fallback=native) or "Ostalo"
         cat1 = CATEGORY_LABELS.get(cat1_raw, cat1_raw.title())
-        cat2 = o.category or cat1
-        if cat2 == cat1_raw:
-            cat2 = cat1
+        sub = infer_category2(o.product, cat1_raw)
+        if sub is not None:
+            cat2 = sub
+        else:
+            cat2 = o.category or cat1
+            if cat2 == cat1_raw:
+                cat2 = cat1
         hierarchy[cat1][cat2].append(o)
 
     # Sort sections by item count
